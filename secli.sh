@@ -512,14 +512,13 @@ public::SetUser(){
         private::${FUNCNAME/*:/} $ERR_EXPR_FAILED;
     fi
 
-    if ! [[ -p /dev/stdin ]]; then
-        private::${FUNCNAME/*:/} $ERR_EXPR_FAILED;
-    else
-        quary_result=$(< /dev/stdin);
-    fi
+    # if ! [[ -p /dev/stdin ]]; then
+    #     private::${FUNCNAME/*:/} $ERR_EXPR_FAILED;
+    # else
+    #     quary_result=$(< /dev/stdin);
+    # fi
 
     declare __hub='';
-    declare __user_name='';
     declare __user_pass='';
     declare __real_name='';
     declare __user_note='';
