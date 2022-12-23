@@ -1,0 +1,6 @@
+{
+  "jsonrpc": "2.0",
+  "id": "rpc_call_id",
+  "method": "EnumListener",
+  "params": {}
+}

@@ -1,0 +1,9 @@
+secli:
+  de:
+    address: de.example.com
+    port: 443
+    password: 5Zab6vwggCtZ4stM
+  usa:
+    address: usa.example.com
+    port: 443
+    password: XCFuydZ4m2xMRF7O

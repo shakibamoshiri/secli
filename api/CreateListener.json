@@ -1,0 +1,9 @@
+{
+  "jsonrpc": "2.0",
+  "id": "rpc_call_id",
+  "method": "CreateListener",
+  "params": {
+    "Port_u32": 0,
+    "Enable_bool": false
+  }
+}

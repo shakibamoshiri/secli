@@ -1,0 +1,8 @@
+{
+  "jsonrpc": "2.0",
+  "id": "rpc_call_id",
+  "method": "DeleteListener",
+  "params": {
+    "Port_u32": 0
+  }
+}

@@ -1,0 +1,9 @@
+{
+  "jsonrpc": "2.0",
+  "id": "rpc_call_id",
+  "method": "DeleteUser",
+  "params": {
+    "HubName_str": "hubname",
+    "Name_str": "name"
+  }
+}
