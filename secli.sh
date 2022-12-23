@@ -56,7 +56,6 @@ SE CLI to manage SE server';
 # https://textfancy.com/text-art/
 
 declare SEconf='';
-declare -A SEserver=([addr]= [port]= [pass]=);
 declare OUT_FROMAT=default;
 declare SCRIPT_DEBUG_FLAG=false;
 ################################################################################
@@ -101,13 +100,12 @@ private::curl_request(){
 }
 
 public::apply(){
-    declare curl_data;
     private::strict_mode;
 
-    if [[ ${SEserver[addr]} == '' ]]; then
-        printf "use 'config' --file file.yaml --target name before using 'apply' command\n";
-        exit $ERR_EXPR_FAILED;
-    fi
+    # if [[ ${SEserver[addr]} == '' ]]; then
+    #     printf "use 'config' --file file.yaml --target name before using 'apply' command\n";
+    #     exit $ERR_EXPR_FAILED;
+    # fi
 
     private::apply(){
         printf "${FUNCNAME/*:/}\n\n";
@@ -123,8 +121,9 @@ public::apply(){
         fi
     fi
 
+    declare se_data='';
     if [[ -p /dev/stdin ]]; then
-        curl_data=$(< /dev/stdin);
+        se_data=$(< /dev/stdin);
     fi
 
     declare __format=default;
@@ -148,8 +147,29 @@ public::apply(){
     
     : __format="${__format:?Error: a format <default|json|yaml> is needed}";
     private::debug $LINENO '--format' "'${__format}'";
-    
-    private::curl_request $__format "$curl_data";
+
+    declare -A SEserver=([addr]= [port]= [pass]=);
+    declare payload='';
+    SEserver[addr]=$(yq '.se_cred.address' <<< "$se_data");
+    SEserver[port]=$(yq '.se_cred.port' <<< "$se_data");
+    SEserver[pass]=$(yq '.se_cred.password' <<< "$se_data");
+    curl_data=$(yq '.rpc_json' <<< "$se_data");
+
+    case ${__format} in
+        json )
+            curl -sL --insecure  -X POST -H "X-VPNADMIN-PASSWORD: ${SEserver[pass]}"  https://${SEserver[addr]}:${SEserver[port]}/api/ -d "${curl_data}" | jq '.'
+        ;;
+        yaml )
+            curl -sL --insecure  -X POST -H "X-VPNADMIN-PASSWORD: ${SEserver[pass]}"  https://${SEserver[addr]}:${SEserver[port]}/api/ -d "${curl_data}" | jq '.' | yq -Po yaml
+        ;;
+        default )
+            curl -sL --insecure  -X POST -H "X-VPNADMIN-PASSWORD: ${SEserver[pass]}"  https://${SEserver[addr]}:${SEserver[port]}/api/ -d "${curl_data}";
+        ;;
+        * )
+            printf "'%s' output format not found. see help\n" $1;
+            exit $ERR_EXPR_FAILED;
+        ;;
+    esac
 }
 
 
@@ -158,30 +178,27 @@ public::apply(){
 
 
 public::Test(){
-    declare curl_data;
     declare SEmethod;
     SEmethod=${FUNCNAME/*:/};
-    curl_data=$(yq $API_PATH/$SEmethod.json);
 
-    private::curl_request "$curl_data";
+    declare -x __params='
+    "params": {
+        "IntValue_u32": 0
+    }';
+
+    yq -n '{"jsonrpc": "2.0"} + {"id":"rpc_call_id"} + {"method":"'"$SEmethod"'"} + { eval(strenv(__params)) }' -Po json
 }
 
 public::GetServerInfo(){
-    declare curl_data;
     declare SEmethod;
     SEmethod=${FUNCNAME/*:/};
-    curl_data=$(yq $API_PATH/$SEmethod.json);
-
-    private::curl_request "$curl_data";
+    yq -Po json  -n '{"jsonrpc": "2.0", "id": "rpc_call_id", "method": "'"${SEmethod}"'", "params": {}}';
 }
 
 public::GetServerStatus(){
-    declare curl_data;
     declare SEmethod;
     SEmethod=${FUNCNAME/*:/};
-    curl_data=$(yq $API_PATH/$SEmethod.json);
-
-    private::curl_request "$curl_data";
+    yq -Po json  -n '{"jsonrpc": "2.0", "id": "rpc_call_id", "method": "'"${SEmethod}"'", "params": {}}';
 }
 
 public::CreateListener(){
@@ -226,24 +243,23 @@ public::CreateListener(){
     
     : __port="${__port:?Error: a port <number> is needed}";
     private::debug $LINENO '--port' "'${__port}'";
-    
-    declare curl_data;
+    private::debug $LINENO '--enable' "'${__enable}'";
+
     declare SEmethod;
     SEmethod=${FUNCNAME/*:/};
-    curl_data=$(yq ".params.Port_u32=\"${__port}\", .params.Enable_bool=\"${__enable}\"" $API_PATH/$SEmethod.json);
 
-    private::debug $LINENO 'curl_data' "'${curl_data}'";
-    private::curl_request "$curl_data";
+    declare -x __params='"params": {
+        "Port_u32": '$__port',
+        "Enable_bool": '$__enable'
+    } ';
+
+    yq -n '{"jsonrpc": "2.0"} + {"id":"rpc_call_id"} + {"method":"'"$SEmethod"'"} + { eval(strenv(__params)) }' -Po json
 }
 
 public::EnumListener(){
-    declare curl_data;
     declare SEmethod;
     SEmethod=${FUNCNAME/*:/};
-    curl_data=$(yq $API_PATH/$SEmethod.json);
-
-    private::debug $LINENO 'curl_data' "'${curl_data}'";
-    private::curl_request "$curl_data";
+    yq -Po json  -n '{"jsonrpc": "2.0", "id": "rpc_call_id", "method": "'"${SEmethod}"'", "params": {}}';
 }
 
 public::DeleteListener(){
@@ -282,14 +298,15 @@ public::DeleteListener(){
     
     : __port="${__port:?Error: a port <number> is needed}";
     private::debug $LINENO '--port' "'${__port}'";
-    
-    declare curl_data;
+
     declare SEmethod;
     SEmethod=${FUNCNAME/*:/};
-    curl_data=$(yq ".params.Port_u32=\"${__port}\"" $API_PATH/$SEmethod.json);
 
-    private::debug $LINENO 'curl_data' "'${curl_data}'";
-    private::curl_request "$curl_data";
+    declare -x __params='"params": {
+        "Port_u32": '$__port'
+    } ';
+
+    yq -n '{"jsonrpc": "2.0"} + {"id":"rpc_call_id"} + {"method":"'"$SEmethod"'"} + { eval(strenv(__params)) }' -Po json
 }
 
 public::EnableListener(){
@@ -335,14 +352,16 @@ public::EnableListener(){
     : __port="${__port:?Error: a port <number> is needed}";
     private::debug $LINENO '--port' "'${__port}'";
     private::debug $LINENO '--enable' "'${__enable}'";
-    
-    declare curl_data;
+
     declare SEmethod;
     SEmethod=${FUNCNAME/*:/};
-    curl_data=$(yq ".params.Port_u32=\"${__port}\", .params.Enable_bool=\"${__enable}\"" $API_PATH/$SEmethod.json);
 
-    private::debug $LINENO 'curl_data' "'${curl_data}'";
-    private::curl_request "$curl_data";
+    declare -x __params='"params": {
+        "Port_u32": '$__port',
+        "Enable_bool": '$__enable'
+    } ';
+
+    yq -n '{"jsonrpc": "2.0"} + {"id":"rpc_call_id"} + {"method":"'"$SEmethod"'"} + { eval(strenv(__params)) }' -Po json
 }
 
 public::CreateUser(){
@@ -451,23 +470,21 @@ public::CreateUser(){
     private::debug $LINENO '--p-fix-pass' "'${__policy_fix_pass}'";
     private::debug $LINENO '--p-mulit-login' "'${__policy_multi_login}'";
 
-    declare -x __params='
-        "params": {
-            "HubName_str": "'"${__hub}"'",
-            "Name_str": "'"${__user_name}"'",
-            "Realname_utf": "'"${__real_name}"'",
-            "Note_utf": "'"${__user_note}"'",
-            "ExpireTime_dt": "",
-            "AuthType_u32": '${__auth_type}',
-            "Auth_Password_str": "'"${__user_pass}"'",
-            "UsePolicy_bool": '${__policy_rule}',
-            "policy:Access_bool": '${__policy_access}',
-            "policy:MaxConnection_u32": 32,
-            "policy:TimeOut_u32": 20,
-            "policy:FixPassword_bool": true,
-            "policy:MultiLogins_u32": '${__policy_multi_login}'
-        }';
-
+    declare -x __params=' "params": {
+        "HubName_str": "'"${__hub}"'",
+        "Name_str": "'"${__user_name}"'",
+        "Realname_utf": "'"${__real_name}"'",
+        "Note_utf": "'"${__user_note}"'",
+        "ExpireTime_dt": "",
+        "AuthType_u32": '${__auth_type}',
+        "Auth_Password_str": "'"${__user_pass}"'",
+        "UsePolicy_bool": '${__policy_rule}',
+        "policy:Access_bool": '${__policy_access}',
+        "policy:MaxConnection_u32": 32,
+        "policy:TimeOut_u32": 20,
+        "policy:FixPassword_bool": true,
+        "policy:MultiLogins_u32": '${__policy_multi_login}'
+    }';
 
     yq -n '{"jsonrpc": "2.0"} + {"id":"rpc_call_id"} + {"method":"'"${FUNCNAME/*:/}"'"} + { eval(strenv(__params)) }' -Po json
 }
@@ -476,6 +493,8 @@ public::SetUser(){
     private::SetUser(){
         printf "${FUNCNAME/*:/}\n\n";
         printf "%-${HELP_OFFSET}s %s\n" "-h  | --help" "show this help";
+        printf "%-${HELP_OFFSET}s %s\n" "-H  | --hub" "a valid hub name on SE server";
+        printf "%-${HELP_OFFSET}s %s\n" "-u  | --user" "a valid user name";
         printf "%-${HELP_OFFSET}s %s\n" "-p  | --pass" "a password to set for user name";
         printf "%-${HELP_OFFSET}s %s\n" "-r  | --realname" "full name for a user";
         printf "%-${HELP_OFFSET}s %s\n" "-n  | --note" "note  for a user";
@@ -493,14 +512,13 @@ public::SetUser(){
         private::${FUNCNAME/*:/} $ERR_EXPR_FAILED;
     fi
 
-    if ! [[ -p /dev/stdin ]]; then
-        private::${FUNCNAME/*:/} $ERR_EXPR_FAILED;
-    else
-        quary_result=$(< /dev/stdin);
-    fi
+    # if ! [[ -p /dev/stdin ]]; then
+    #     private::${FUNCNAME/*:/} $ERR_EXPR_FAILED;
+    # else
+    #     quary_result=$(< /dev/stdin);
+    # fi
 
     declare __hub='';
-    declare __user_name='';
     declare __user_pass='';
     declare __real_name='';
     declare __user_note='';
@@ -518,7 +536,22 @@ public::SetUser(){
     while (( ${#} > 0 )); do
         case ${1} in
             -h | --help )
-                private::split_help 0;
+                private::${FUNCNAME/*:/} 0;
+            ;;
+            -h | --hub )
+                __hub="${2:?Error: a hub <name> is needed}";
+                shift 2;
+                quary_result=$(yq '.result.HubName_str="'"${__hub}"'"  ' -Po json <<< "$quary_result");
+            ;;
+            -p | --user )
+                __user_name="${2:?Error: a user <name> is needed}";
+                shift 2;
+                quary_result=$(yq '.result.Name_str="'"${__user_name}"'"  ' -Po json <<< "$quary_result");
+            ;;
+            -p | --pass )
+                __user_pass="${2:?Error: a password is needed}";
+                shift 2;
+                quary_result=$(yq '.result.Auth_Password_str="'"${__real_name}"'"  ' -Po json <<< "$quary_result");
             ;;
             -r | --real )
                 __real_name="${2:?Error: a full <name> is needed}";
@@ -571,22 +604,6 @@ public::SetUser(){
     private::debug $LINENO '--p-mulit-login' "'${__policy_multi_login}'";
 
     declare -x __params="$(yq '.result' <<< $quary_result | jq '.')";
-    # declare -x __params='
-    #     "params": {
-    #         "HubName_str": "'"${__hub}"'",
-    #         "Name_str": "'"${__user_name}"'",
-    #         "Realname_utf": "'"${__real_name}"'",
-    #         "Note_utf": "'"${__user_note}"'",
-    #         "ExpireTime_dt": "",
-    #         "AuthType_u32": '${__auth_type}',
-    #         "Auth_Password_str": "'"${__user_pass}"'",
-    #         "UsePolicy_bool": '${__policy_rule}',
-    #         "policy:Access_bool": '${__policy_access}',
-    #         "policy:MaxConnection_u32": 32,
-    #         "policy:TimeOut_u32": 20,
-    #         "policy:FixPassword_bool": true,
-    #         "policy:MultiLogins_u32": '${__policy_multi_login}'
-    #     }';
     yq -Po json -n '{"jsonrpc": "2.0"} + {"id":"rpc_call_id"} + {"method":"'"${FUNCNAME/*:/}"'"} + { "params": eval(strenv(__params)) }';
 }
 
@@ -633,15 +650,16 @@ public::GetUser(){
 
     private::debug $LINENO '--hub' "'${__hub}'";
     private::debug $LINENO '--user' "'${__user}'";
-    yq -n '.jsonrpc="2.0" | .id="rpc_call_id" | .method="'"${FUNCNAME/*:/}"'" | .params.HubName_str="'"${__hub}"'" | .params.Name_str="'"${__user}"'" ' -Po json
-    
-    # declare curl_data;
-    # declare SEmethod;
-    # SEmethod=${FUNCNAME/*:/};
-    # curl_data=$(yq ".params.HubName_str=\"${__hub}\", .params.Name_str=\"${__user}\"" $API_PATH/$SEmethod.json);
 
-    # private::debug $LINENO 'curl_data' "'${curl_data}'";
-    # jq <<< "$curl_data";
+    declare SEmethod;
+    SEmethod=${FUNCNAME/*:/};
+
+    declare -x __params='"params": {
+        "HubName_str": "'"$__hub"'",
+        "Name_str": "'"$__user"'"
+    } ';
+
+    yq -n '{"jsonrpc": "2.0"} + {"id":"rpc_call_id"} + {"method":"'"$SEmethod"'"} + { eval(strenv(__params)) }' -Po json
 }
 
 public::DeleteUser(){
@@ -687,18 +705,16 @@ public::DeleteUser(){
 
     private::debug $LINENO '--hub' "'${__hub}'";
     private::debug $LINENO '--user' "'${__user}'";
-    
-    yq -n '.jsonrpc="2.0" | .id="rpc_call_id" | .method="'"${FUNCNAME/*:/}"'" | .params.HubName_str="'"${__hub}"'" | .params.Name_str="'"${__user}"'" ' -Po json
-    
-    # declare curl_data;
-    # declare SEmethod;
-    # SEmethod=${FUNCNAME/*:/};
-    # curl_data=$(yq ".params.HubName_str=\"${__hub}\", .params.Name_str=\"${__user}\"" $API_PATH/$SEmethod.json);
 
-    # yq -n ".params.HubName_str=\"${__hub}\", .params.Name_str=\"${__user}\"" $API_PATH/$SEmethod.json);
+    declare SEmethod;
+    SEmethod=${FUNCNAME/*:/};
 
-    # private::debug $LINENO 'curl_data' "'${curl_data}'";
-    # jq <<< "$curl_data";
+    declare -x __params='"params": {
+        "HubName_str": "'"$__hub"'",
+        "Name_str": "'"$__user"'"
+    } ';
+
+    yq -n '{"jsonrpc": "2.0"} + {"id":"rpc_call_id"} + {"method":"'"$SEmethod"'"} + { eval(strenv(__params)) }' -Po json
 }
 
 public::EnumUser(){
@@ -736,14 +752,15 @@ public::EnumUser(){
     : __hub="${__hub:?Error: a hub <name> is needed}";
 
     private::debug $LINENO '--hub' "'${__hub}'";
-    
-    declare curl_data;
+
     declare SEmethod;
     SEmethod=${FUNCNAME/*:/};
-    curl_data=$(yq ".params.HubName_str=\"${__hub}\"" $API_PATH/$SEmethod.json);
 
-    private::debug $LINENO 'curl_data' "'${curl_data}'";
-    private::curl_request "$curl_data";
+    declare -x __params='"params": {
+        "HubName_str": "'"$__hub"'"
+    } ';
+
+    yq -n '{"jsonrpc": "2.0"} + {"id":"rpc_call_id"} + {"method":"'"$SEmethod"'"} + { eval(strenv(__params)) }' -Po json
 }
 
 ################################################################################
@@ -761,8 +778,16 @@ public::config(){
         exit ${1:-1};
     }
 
+
+    declare -x rpc_json;
     if (( ${#} == 0 )); then
-        private::${FUNCNAME/*:/} $ERR_EXPR_FAILED;
+        if ! [[ -p /dev/stdin ]]; then
+            private::${FUNCNAME/*:/} $ERR_EXPR_FAILED;
+        fi
+    fi
+
+    if [[ -p /dev/stdin ]]; then
+        rpc_json=$(< /dev/stdin);
     fi
 
     declare __file='';
@@ -795,22 +820,78 @@ public::config(){
     private::debug $LINENO '--file' "'${__file}'";
     private::debug $LINENO '--target' "'${__target}'";
 
-    SEconf=$(yq ".secli.${__target}" $__file);
-
-    SEserver[addr]=$(yq '.address' <<< "$SEconf")
-    SEserver[port]=$(yq '.port' <<< "$SEconf")
-    SEserver[pass]=$(yq '.password' <<< "$SEconf")
-
-    private::debug $LINENO 'SEserver[addr]' "'${SEserver[addr]}'";
-    private::debug $LINENO 'SEserver[port]' "'${SEserver[port]}'";
-    private::debug $LINENO 'SEserver[pass]' "'${SEserver[pass]}'";
-    
-    if (( ${#} != 0 )); then
-        private::debug $LINENO continue-config: "'$@'";
-        private::main "$@";
-    fi
+    declare -x se_cred;
+    se_cred=$(yq ".secli.${__target}" $__file -Po json)
+    yq -n '{"se_cred": eval(strenv(se_cred)), "rpc_json": eval(strenv(rpc_json))}' -Po json;
 }
 
+public::parse(){
+    private::parse(){
+        printf "${FUNCNAME/*:/}\n\n";
+        printf "%-${HELP_OFFSET}s %s\n" "-h  | --help" "show this help";
+        printf "%-${HELP_OFFSET}s %s\n" "-m  | --method" "a valid yaml file contains admin credentials";
+        printf "%-${HELP_OFFSET}s %s\n" "              " "GetServerInfo";
+        printf "%-${HELP_OFFSET}s %s\n" "              " "GetServerStatus";
+        printf "%-${HELP_OFFSET}s %s\n" "              " "EnumListener";
+        printf "%-${HELP_OFFSET}s %s\n" "              " "CreateUser";
+        printf "%-${HELP_OFFSET}s %s\n" "              " "SetUser";
+        printf "%-${HELP_OFFSET}s %s\n" "              " "GetUser";
+        printf "%-${HELP_OFFSET}s %s\n" "              " "DeleteUser";
+        printf "%-${HELP_OFFSET}s %s\n" "              " "EnumUser";
+
+        exit ${1:-1};
+    }
+
+    declare -x rpc_json;
+    if (( ${#} == 0 )); then
+        if ! [[ -p /dev/stdin ]]; then
+            private::${FUNCNAME/*:/} $ERR_EXPR_FAILED;
+        fi
+    fi
+
+    if [[ -p /dev/stdin ]]; then
+        rpc_json=$(< /dev/stdin);
+    fi
+
+    declare __method='';
+
+    while (( ${#} > 0 )); do
+        case ${1} in
+            -h | --help )
+                private::${FUNCNAME/*:/} 0;
+            ;;
+            -m | --method )
+                __method="${2:?Error: a method <name> is needed}";
+                shift 2;
+            ;;
+            * )
+                # break;
+                printf 'unknown option: %s\n' $1;
+                private::${FUNCNAME/*:/} $ERR_EXPR_FAILED;
+            ;;
+        esac
+    done
+
+    : __method="${__method:?Error: a method <name> is needed}";
+
+    private::debug $LINENO '--method' "'${__method}'";
+
+   case $__method in
+       GetServerInfo | GetServerStatus | CreateUser | SetUser | GetUser | DeleteUser )
+           echo "$rpc_json" | jq | yq -Po yaml '.result  | .[] |= select(tag == "!!str") |= sub("\s+", "-")' | column -t
+       ;;
+       EnumListener )
+           echo "$rpc_json" | jq | yq -Po yaml '.result.ListenerList[] | [  { "port": .Ports_u32, "active": .Enables_bool, "error": .Errors_bool } ]'
+       ;;
+       EnumUser )
+           echo "$rpc_json" | yq  '.result.UserList [] | [ { "user" : { "name": .Name_str, "blocked": .DenyAccess_bool, "note": .Note_utf , "real_name": .Realname_utf, "logins": .NumLogin_u32, "last_login": .LastLoginTime_dt, "usage": [ .*Bytes* ] | map(. as $item ireduce (0; . + $item)) | .[] } } ]'
+       ;;
+       * )
+            printf 'unknown option: %s\n' $__method;
+            private::${FUNCNAME/*:/} $ERR_EXPR_FAILED;
+       ;;
+   esac
+}
 
 ################################################################################
 #
@@ -879,7 +960,8 @@ private::main_help(){
     printf "\nsecli commands:\n";
     printf "%-${HELP_OFFSET}s %s\n" 'help' 'show help menu';
     printf "%-${HELP_OFFSET}s %s\n" 'config' 'read SE server admin yaml file';
-    printf "%-${HELP_OFFSET}s %s\n" 'apply' 'apply RPC-JSON to SE server';
+    printf "%-${HELP_OFFSET}s %s\n" 'apply' 'send RPC-JSON to SE server';
+    printf "%-${HELP_OFFSET}s %s\n" 'parse' 'parse SE server response';
     
     printf "\nRPC API commands:\n";
     printf "%-${HELP_OFFSET}s %s\n" 'Test' 'Test RPC function';
@@ -944,7 +1026,7 @@ private::main(){
     fi
 
     case ${1} in
-        config | apply | Test | GetServerInfo | GetServerStatus | CreateListener | EnumListener | DeleteListener | EnableListener | CreateUser | SetUser | GetUser | DeleteUser | EnumUser )
+        config | apply | parse | Test | GetServerInfo | GetServerStatus | CreateListener | EnumListener | DeleteListener | EnableListener | CreateUser | SetUser | GetUser | DeleteUser | EnumUser )
             private::debug $LINENO 'command:' "'${1}'";
             private::debug $LINENO 'command-options:' "'${@:2}'";
             public::${1} "${@:2}";
