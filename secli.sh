@@ -178,31 +178,27 @@ public::apply(){
 
 
 public::Test(){
-    declare curl_data;
     declare SEmethod;
     SEmethod=${FUNCNAME/*:/};
-    curl_data=$(yq $API_PATH/$SEmethod.json);
 
-    # private::curl_request "$curl_data";
-    yq -Po json <<< "$curl_data";
+    declare -x __params='
+    "params": {
+        "IntValue_u32": 0
+    }';
+
+    yq -n '{"jsonrpc": "2.0"} + {"id":"rpc_call_id"} + {"method":"'"$SEmethod"'"} + { eval(strenv(__params)) }' -Po json
 }
 
 public::GetServerInfo(){
-    declare curl_data;
     declare SEmethod;
     SEmethod=${FUNCNAME/*:/};
-    curl_data=$(yq $API_PATH/$SEmethod.json);
-
-    private::curl_request "$curl_data";
+    yq -Po json  -n '{"jsonrpc": "2.0", "id": "rpc_call_id", "method": "'"${SEmethod}"'", "params": {}}';
 }
 
 public::GetServerStatus(){
-    declare curl_data;
     declare SEmethod;
     SEmethod=${FUNCNAME/*:/};
-    curl_data=$(yq $API_PATH/$SEmethod.json);
-
-    private::curl_request "$curl_data";
+    yq -Po json  -n '{"jsonrpc": "2.0", "id": "rpc_call_id", "method": "'"${SEmethod}"'", "params": {}}';
 }
 
 public::CreateListener(){
@@ -247,24 +243,23 @@ public::CreateListener(){
     
     : __port="${__port:?Error: a port <number> is needed}";
     private::debug $LINENO '--port' "'${__port}'";
-    
-    declare curl_data;
+    private::debug $LINENO '--enable' "'${__enable}'";
+
     declare SEmethod;
     SEmethod=${FUNCNAME/*:/};
-    curl_data=$(yq ".params.Port_u32=\"${__port}\", .params.Enable_bool=\"${__enable}\"" $API_PATH/$SEmethod.json);
 
-    private::debug $LINENO 'curl_data' "'${curl_data}'";
-    private::curl_request "$curl_data";
+    declare -x __params='"params": {
+        "Port_u32": '$__port',
+        "Enable_bool": '$__enable'
+    } ';
+
+    yq -n '{"jsonrpc": "2.0"} + {"id":"rpc_call_id"} + {"method":"'"$SEmethod"'"} + { eval(strenv(__params)) }' -Po json
 }
 
 public::EnumListener(){
-    declare curl_data;
     declare SEmethod;
     SEmethod=${FUNCNAME/*:/};
-    curl_data=$(yq $API_PATH/$SEmethod.json);
-
-    private::debug $LINENO 'curl_data' "'${curl_data}'";
-    private::curl_request "$curl_data";
+    yq -Po json  -n '{"jsonrpc": "2.0", "id": "rpc_call_id", "method": "'"${SEmethod}"'", "params": {}}';
 }
 
 public::DeleteListener(){
@@ -303,14 +298,15 @@ public::DeleteListener(){
     
     : __port="${__port:?Error: a port <number> is needed}";
     private::debug $LINENO '--port' "'${__port}'";
-    
-    declare curl_data;
+
     declare SEmethod;
     SEmethod=${FUNCNAME/*:/};
-    curl_data=$(yq ".params.Port_u32=\"${__port}\"" $API_PATH/$SEmethod.json);
 
-    private::debug $LINENO 'curl_data' "'${curl_data}'";
-    private::curl_request "$curl_data";
+    declare -x __params='"params": {
+        "Port_u32": '$__port'
+    } ';
+
+    yq -n '{"jsonrpc": "2.0"} + {"id":"rpc_call_id"} + {"method":"'"$SEmethod"'"} + { eval(strenv(__params)) }' -Po json
 }
 
 public::EnableListener(){
@@ -356,14 +352,16 @@ public::EnableListener(){
     : __port="${__port:?Error: a port <number> is needed}";
     private::debug $LINENO '--port' "'${__port}'";
     private::debug $LINENO '--enable' "'${__enable}'";
-    
-    declare curl_data;
+
     declare SEmethod;
     SEmethod=${FUNCNAME/*:/};
-    curl_data=$(yq ".params.Port_u32=\"${__port}\", .params.Enable_bool=\"${__enable}\"" $API_PATH/$SEmethod.json);
 
-    private::debug $LINENO 'curl_data' "'${curl_data}'";
-    private::curl_request "$curl_data";
+    declare -x __params='"params": {
+        "Port_u32": '$__port',
+        "Enable_bool": '$__enable'
+    } ';
+
+    yq -n '{"jsonrpc": "2.0"} + {"id":"rpc_call_id"} + {"method":"'"$SEmethod"'"} + { eval(strenv(__params)) }' -Po json
 }
 
 public::CreateUser(){
@@ -472,23 +470,21 @@ public::CreateUser(){
     private::debug $LINENO '--p-fix-pass' "'${__policy_fix_pass}'";
     private::debug $LINENO '--p-mulit-login' "'${__policy_multi_login}'";
 
-    declare -x __params='
-        "params": {
-            "HubName_str": "'"${__hub}"'",
-            "Name_str": "'"${__user_name}"'",
-            "Realname_utf": "'"${__real_name}"'",
-            "Note_utf": "'"${__user_note}"'",
-            "ExpireTime_dt": "",
-            "AuthType_u32": '${__auth_type}',
-            "Auth_Password_str": "'"${__user_pass}"'",
-            "UsePolicy_bool": '${__policy_rule}',
-            "policy:Access_bool": '${__policy_access}',
-            "policy:MaxConnection_u32": 32,
-            "policy:TimeOut_u32": 20,
-            "policy:FixPassword_bool": true,
-            "policy:MultiLogins_u32": '${__policy_multi_login}'
-        }';
-
+    declare -x __params=' "params": {
+        "HubName_str": "'"${__hub}"'",
+        "Name_str": "'"${__user_name}"'",
+        "Realname_utf": "'"${__real_name}"'",
+        "Note_utf": "'"${__user_note}"'",
+        "ExpireTime_dt": "",
+        "AuthType_u32": '${__auth_type}',
+        "Auth_Password_str": "'"${__user_pass}"'",
+        "UsePolicy_bool": '${__policy_rule}',
+        "policy:Access_bool": '${__policy_access}',
+        "policy:MaxConnection_u32": 32,
+        "policy:TimeOut_u32": 20,
+        "policy:FixPassword_bool": true,
+        "policy:MultiLogins_u32": '${__policy_multi_login}'
+    }';
 
     yq -n '{"jsonrpc": "2.0"} + {"id":"rpc_call_id"} + {"method":"'"${FUNCNAME/*:/}"'"} + { eval(strenv(__params)) }' -Po json
 }
@@ -497,6 +493,8 @@ public::SetUser(){
     private::SetUser(){
         printf "${FUNCNAME/*:/}\n\n";
         printf "%-${HELP_OFFSET}s %s\n" "-h  | --help" "show this help";
+        printf "%-${HELP_OFFSET}s %s\n" "-H  | --hub" "a valid hub name on SE server";
+        printf "%-${HELP_OFFSET}s %s\n" "-u  | --user" "a valid user name";
         printf "%-${HELP_OFFSET}s %s\n" "-p  | --pass" "a password to set for user name";
         printf "%-${HELP_OFFSET}s %s\n" "-r  | --realname" "full name for a user";
         printf "%-${HELP_OFFSET}s %s\n" "-n  | --note" "note  for a user";
@@ -592,22 +590,6 @@ public::SetUser(){
     private::debug $LINENO '--p-mulit-login' "'${__policy_multi_login}'";
 
     declare -x __params="$(yq '.result' <<< $quary_result | jq '.')";
-    # declare -x __params='
-    #     "params": {
-    #         "HubName_str": "'"${__hub}"'",
-    #         "Name_str": "'"${__user_name}"'",
-    #         "Realname_utf": "'"${__real_name}"'",
-    #         "Note_utf": "'"${__user_note}"'",
-    #         "ExpireTime_dt": "",
-    #         "AuthType_u32": '${__auth_type}',
-    #         "Auth_Password_str": "'"${__user_pass}"'",
-    #         "UsePolicy_bool": '${__policy_rule}',
-    #         "policy:Access_bool": '${__policy_access}',
-    #         "policy:MaxConnection_u32": 32,
-    #         "policy:TimeOut_u32": 20,
-    #         "policy:FixPassword_bool": true,
-    #         "policy:MultiLogins_u32": '${__policy_multi_login}'
-    #     }';
     yq -Po json -n '{"jsonrpc": "2.0"} + {"id":"rpc_call_id"} + {"method":"'"${FUNCNAME/*:/}"'"} + { "params": eval(strenv(__params)) }';
 }
 
@@ -654,15 +636,16 @@ public::GetUser(){
 
     private::debug $LINENO '--hub' "'${__hub}'";
     private::debug $LINENO '--user' "'${__user}'";
-    yq -n '.jsonrpc="2.0" | .id="rpc_call_id" | .method="'"${FUNCNAME/*:/}"'" | .params.HubName_str="'"${__hub}"'" | .params.Name_str="'"${__user}"'" ' -Po json
-    
-    # declare curl_data;
-    # declare SEmethod;
-    # SEmethod=${FUNCNAME/*:/};
-    # curl_data=$(yq ".params.HubName_str=\"${__hub}\", .params.Name_str=\"${__user}\"" $API_PATH/$SEmethod.json);
 
-    # private::debug $LINENO 'curl_data' "'${curl_data}'";
-    # jq <<< "$curl_data";
+    declare SEmethod;
+    SEmethod=${FUNCNAME/*:/};
+
+    declare -x __params='"params": {
+        "HubName_str": "'"$__hub"'",
+        "Name_str": "'"$__user"'"
+    } ';
+
+    yq -n '{"jsonrpc": "2.0"} + {"id":"rpc_call_id"} + {"method":"'"$SEmethod"'"} + { eval(strenv(__params)) }' -Po json
 }
 
 public::DeleteUser(){
@@ -708,18 +691,16 @@ public::DeleteUser(){
 
     private::debug $LINENO '--hub' "'${__hub}'";
     private::debug $LINENO '--user' "'${__user}'";
-    
-    yq -n '.jsonrpc="2.0" | .id="rpc_call_id" | .method="'"${FUNCNAME/*:/}"'" | .params.HubName_str="'"${__hub}"'" | .params.Name_str="'"${__user}"'" ' -Po json
-    
-    # declare curl_data;
-    # declare SEmethod;
-    # SEmethod=${FUNCNAME/*:/};
-    # curl_data=$(yq ".params.HubName_str=\"${__hub}\", .params.Name_str=\"${__user}\"" $API_PATH/$SEmethod.json);
 
-    # yq -n ".params.HubName_str=\"${__hub}\", .params.Name_str=\"${__user}\"" $API_PATH/$SEmethod.json);
+    declare SEmethod;
+    SEmethod=${FUNCNAME/*:/};
 
-    # private::debug $LINENO 'curl_data' "'${curl_data}'";
-    # jq <<< "$curl_data";
+    declare -x __params='"params": {
+        "HubName_str": "'"$__hub"'",
+        "Name_str": "'"$__user"'"
+    } ';
+
+    yq -n '{"jsonrpc": "2.0"} + {"id":"rpc_call_id"} + {"method":"'"$SEmethod"'"} + { eval(strenv(__params)) }' -Po json
 }
 
 public::EnumUser(){
@@ -757,14 +738,15 @@ public::EnumUser(){
     : __hub="${__hub:?Error: a hub <name> is needed}";
 
     private::debug $LINENO '--hub' "'${__hub}'";
-    
-    declare curl_data;
+
     declare SEmethod;
     SEmethod=${FUNCNAME/*:/};
-    curl_data=$(yq ".params.HubName_str=\"${__hub}\"" $API_PATH/$SEmethod.json);
 
-    private::debug $LINENO 'curl_data' "'${curl_data}'";
-    private::curl_request "$curl_data";
+    declare -x __params='"params": {
+        "HubName_str": "'"$__hub"'"
+    } ';
+
+    yq -n '{"jsonrpc": "2.0"} + {"id":"rpc_call_id"} + {"method":"'"$SEmethod"'"} + { eval(strenv(__params)) }' -Po json
 }
 
 ################################################################################
