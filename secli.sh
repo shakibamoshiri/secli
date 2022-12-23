@@ -825,6 +825,73 @@ public::config(){
     yq -n '{"se_cred": eval(strenv(se_cred)), "rpc_json": eval(strenv(rpc_json))}' -Po json;
 }
 
+public::parse(){
+    private::parse(){
+        printf "${FUNCNAME/*:/}\n\n";
+        printf "%-${HELP_OFFSET}s %s\n" "-h  | --help" "show this help";
+        printf "%-${HELP_OFFSET}s %s\n" "-m  | --method" "a valid yaml file contains admin credentials";
+        printf "%-${HELP_OFFSET}s %s\n" "              " "GetServerInfo";
+        printf "%-${HELP_OFFSET}s %s\n" "              " "GetServerStatus";
+        printf "%-${HELP_OFFSET}s %s\n" "              " "EnumListener";
+        printf "%-${HELP_OFFSET}s %s\n" "              " "CreateUser";
+        printf "%-${HELP_OFFSET}s %s\n" "              " "SetUser";
+        printf "%-${HELP_OFFSET}s %s\n" "              " "GetUser";
+        printf "%-${HELP_OFFSET}s %s\n" "              " "DeleteUser";
+        printf "%-${HELP_OFFSET}s %s\n" "              " "EnumUser";
+
+        exit ${1:-1};
+    }
+
+    declare -x rpc_json;
+    if (( ${#} == 0 )); then
+        if ! [[ -p /dev/stdin ]]; then
+            private::${FUNCNAME/*:/} $ERR_EXPR_FAILED;
+        fi
+    fi
+
+    if [[ -p /dev/stdin ]]; then
+        rpc_json=$(< /dev/stdin);
+    fi
+
+    declare __method='';
+
+    while (( ${#} > 0 )); do
+        case ${1} in
+            -h | --help )
+                private::${FUNCNAME/*:/} 0;
+            ;;
+            -m | --method )
+                __method="${2:?Error: a method <name> is needed}";
+                shift 2;
+            ;;
+            * )
+                # break;
+                printf 'unknown option: %s\n' $1;
+                private::${FUNCNAME/*:/} $ERR_EXPR_FAILED;
+            ;;
+        esac
+    done
+
+    : __method="${__method:?Error: a method <name> is needed}";
+
+    private::debug $LINENO '--method' "'${__method}'";
+
+   case $__method in
+       GetServerInfo | GetServerStatus | CreateUser | SetUser | GetUser | DeleteUser )
+           echo "$rpc_json" | jq | yq -Po yaml '.result  | .[] |= select(tag == "!!str") |= sub("\s+", "-")' | column -t
+       ;;
+       EnumListener )
+           echo "$rpc_json" | jq | yq -Po yaml '.result.ListenerList[] | [  { "port": .Ports_u32, "active": .Enables_bool, "error": .Errors_bool } ]'
+       ;;
+       EnumUser )
+           echo "$rpc_json" | yq  '.result.UserList [] | [ { "user" : { "name": .Name_str, "blocked": .DenyAccess_bool, "note": .Note_utf , "real_name": .Realname_utf, "logins": .NumLogin_u32, "last_login": .LastLoginTime_dt, "usage": [ .*Bytes* ] | map(. as $item ireduce (0; . + $item)) | .[] } } ]'
+       ;;
+       * )
+            printf 'unknown option: %s\n' $__method;
+            private::${FUNCNAME/*:/} $ERR_EXPR_FAILED;
+       ;;
+   esac
+}
 
 ################################################################################
 #
@@ -893,7 +960,8 @@ private::main_help(){
     printf "\nsecli commands:\n";
     printf "%-${HELP_OFFSET}s %s\n" 'help' 'show help menu';
     printf "%-${HELP_OFFSET}s %s\n" 'config' 'read SE server admin yaml file';
-    printf "%-${HELP_OFFSET}s %s\n" 'apply' 'apply RPC-JSON to SE server';
+    printf "%-${HELP_OFFSET}s %s\n" 'apply' 'send RPC-JSON to SE server';
+    printf "%-${HELP_OFFSET}s %s\n" 'parse' 'parse SE server response';
     
     printf "\nRPC API commands:\n";
     printf "%-${HELP_OFFSET}s %s\n" 'Test' 'Test RPC function';
@@ -958,7 +1026,7 @@ private::main(){
     fi
 
     case ${1} in
-        config | apply | Test | GetServerInfo | GetServerStatus | CreateListener | EnumListener | DeleteListener | EnableListener | CreateUser | SetUser | GetUser | DeleteUser | EnumUser )
+        config | apply | parse | Test | GetServerInfo | GetServerStatus | CreateListener | EnumListener | DeleteListener | EnableListener | CreateUser | SetUser | GetUser | DeleteUser | EnumUser )
             private::debug $LINENO 'command:' "'${1}'";
             private::debug $LINENO 'command-options:' "'${@:2}'";
             public::${1} "${@:2}";
