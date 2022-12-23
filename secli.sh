@@ -536,7 +536,22 @@ public::SetUser(){
     while (( ${#} > 0 )); do
         case ${1} in
             -h | --help )
-                private::split_help 0;
+                private::${FUNCNAME/*:/} 0;
+            ;;
+            -h | --hub )
+                __hub="${2:?Error: a hub <name> is needed}";
+                shift 2;
+                quary_result=$(yq '.result.HubName_str="'"${__hub}"'"  ' -Po json <<< "$quary_result");
+            ;;
+            -p | --user )
+                __user_name="${2:?Error: a user <name> is needed}";
+                shift 2;
+                quary_result=$(yq '.result.Name_str="'"${__user_name}"'"  ' -Po json <<< "$quary_result");
+            ;;
+            -p | --pass )
+                __user_pass="${2:?Error: a password is needed}";
+                shift 2;
+                quary_result=$(yq '.result.Auth_Password_str="'"${__real_name}"'"  ' -Po json <<< "$quary_result");
             ;;
             -r | --real )
                 __real_name="${2:?Error: a full <name> is needed}";
