@@ -56,7 +56,6 @@ SE CLI to manage SE server';
 # https://textfancy.com/text-art/
 
 declare SEconf='';
-declare -A SEserver=([addr]= [port]= [pass]=);
 declare OUT_FROMAT=default;
 declare SCRIPT_DEBUG_FLAG=false;
 ################################################################################
@@ -101,13 +100,12 @@ private::curl_request(){
 }
 
 public::apply(){
-    declare curl_data;
     private::strict_mode;
 
-    if [[ ${SEserver[addr]} == '' ]]; then
-        printf "use 'config' --file file.yaml --target name before using 'apply' command\n";
-        exit $ERR_EXPR_FAILED;
-    fi
+    # if [[ ${SEserver[addr]} == '' ]]; then
+    #     printf "use 'config' --file file.yaml --target name before using 'apply' command\n";
+    #     exit $ERR_EXPR_FAILED;
+    # fi
 
     private::apply(){
         printf "${FUNCNAME/*:/}\n\n";
@@ -123,8 +121,9 @@ public::apply(){
         fi
     fi
 
+    declare se_data='';
     if [[ -p /dev/stdin ]]; then
-        curl_data=$(< /dev/stdin);
+        se_data=$(< /dev/stdin);
     fi
 
     declare __format=default;
@@ -148,8 +147,29 @@ public::apply(){
     
     : __format="${__format:?Error: a format <default|json|yaml> is needed}";
     private::debug $LINENO '--format' "'${__format}'";
-    
-    private::curl_request $__format "$curl_data";
+
+    declare -A SEserver=([addr]= [port]= [pass]=);
+    declare payload='';
+    SEserver[addr]=$(yq '.se_cred.address' <<< "$se_data");
+    SEserver[port]=$(yq '.se_cred.port' <<< "$se_data");
+    SEserver[pass]=$(yq '.se_cred.password' <<< "$se_data");
+    curl_data=$(yq '.rpc_json' <<< "$se_data");
+
+    case ${__format} in
+        json )
+            curl -sL --insecure  -X POST -H "X-VPNADMIN-PASSWORD: ${SEserver[pass]}"  https://${SEserver[addr]}:${SEserver[port]}/api/ -d "${curl_data}" | jq '.'
+        ;;
+        yaml )
+            curl -sL --insecure  -X POST -H "X-VPNADMIN-PASSWORD: ${SEserver[pass]}"  https://${SEserver[addr]}:${SEserver[port]}/api/ -d "${curl_data}" | jq '.' | yq -Po yaml
+        ;;
+        default )
+            curl -sL --insecure  -X POST -H "X-VPNADMIN-PASSWORD: ${SEserver[pass]}"  https://${SEserver[addr]}:${SEserver[port]}/api/ -d "${curl_data}";
+        ;;
+        * )
+            printf "'%s' output format not found. see help\n" $1;
+            exit $ERR_EXPR_FAILED;
+        ;;
+    esac
 }
 
 
@@ -163,7 +183,8 @@ public::Test(){
     SEmethod=${FUNCNAME/*:/};
     curl_data=$(yq $API_PATH/$SEmethod.json);
 
-    private::curl_request "$curl_data";
+    # private::curl_request "$curl_data";
+    yq -Po json <<< "$curl_data";
 }
 
 public::GetServerInfo(){
@@ -761,8 +782,16 @@ public::config(){
         exit ${1:-1};
     }
 
+
+    declare -x rpc_json;
     if (( ${#} == 0 )); then
-        private::${FUNCNAME/*:/} $ERR_EXPR_FAILED;
+        if ! [[ -p /dev/stdin ]]; then
+            private::${FUNCNAME/*:/} $ERR_EXPR_FAILED;
+        fi
+    fi
+
+    if [[ -p /dev/stdin ]]; then
+        rpc_json=$(< /dev/stdin);
     fi
 
     declare __file='';
@@ -795,20 +824,9 @@ public::config(){
     private::debug $LINENO '--file' "'${__file}'";
     private::debug $LINENO '--target' "'${__target}'";
 
-    SEconf=$(yq ".secli.${__target}" $__file);
-
-    SEserver[addr]=$(yq '.address' <<< "$SEconf")
-    SEserver[port]=$(yq '.port' <<< "$SEconf")
-    SEserver[pass]=$(yq '.password' <<< "$SEconf")
-
-    private::debug $LINENO 'SEserver[addr]' "'${SEserver[addr]}'";
-    private::debug $LINENO 'SEserver[port]' "'${SEserver[port]}'";
-    private::debug $LINENO 'SEserver[pass]' "'${SEserver[pass]}'";
-    
-    if (( ${#} != 0 )); then
-        private::debug $LINENO continue-config: "'$@'";
-        private::main "$@";
-    fi
+    declare -x se_cred;
+    se_cred=$(yq ".secli.${__target}" $__file -Po json)
+    yq -n '{"se_cred": eval(strenv(se_cred)), "rpc_json": eval(strenv(rpc_json))}' -Po json;
 }
 
 
