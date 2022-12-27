@@ -1,12 +1,23 @@
 #!/bin/bash
 
+################################################################################
+#
+#                  (_ ) _
+#   ___   __    ___ | |(_)
+# /  __)/ __ \/ ___)| || |
+# \__  \  ___/ (___ | || |
+# (____/\____)\____)___)_)
 # 
-# ░▀█▀░█░▒█░█▀▀▄░█▀█░█▀▀▄░█▀▀
-# ░░█░░█░▒█░█░▒█░▒▄▀░█░▒█░▀▀▄
-# ░░▀░░░▀▀▀░▀░░▀░█▄▄░▀░░▀░▀▀▀
+# pure Bash CLI to manage SoftEther VPN Server using JSON-RPC
 # 
-# run split/full tunnel inside a Linux namcespace
+# https://github.com/shakibamoshiri/secli
 # 
+# project
+# https://github.com/SoftEtherVPN/SoftEtherVPN
+#
+# SoftEther VPN Server JSON-RPC API Suite Document
+# https://github.com/SoftEtherVPN/SoftEtherVPN/tree/master/developer_tools/vpnserver-jsonrpc-clients
+#
 ################################################################################
 #
 # bash strict mode
