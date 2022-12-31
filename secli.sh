@@ -799,6 +799,11 @@ public::config(){
 
     if [[ -p /dev/stdin ]]; then
         rpc_json=$(< /dev/stdin);
+
+        if [[ $(yq '.rpc_json' <<< "$rpc_json") == null ]]; then
+            printf "rpc_json is null\n";
+            exit $ERR_EXPR_FAILED;
+        fi
     fi
 
     declare __file='';
