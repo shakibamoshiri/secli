@@ -800,8 +800,8 @@ public::config(){
     if [[ -p /dev/stdin ]]; then
         rpc_json=$(< /dev/stdin);
 
-        if [[ $(yq '.rpc_json' <<< "$rpc_json") == null ]]; then
-            printf "rpc_json is null\n";
+        if [[ -z $rpc_json ]]; then
+            printf "rpc_json is null/empty\n";
             exit $ERR_EXPR_FAILED;
         fi
     fi
