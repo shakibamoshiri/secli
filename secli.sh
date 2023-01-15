@@ -649,7 +649,8 @@ public::SetUser(){
     private::debug $LINENO '--p-fix-pass' "'${__policy_fix_pass}'";
     private::debug $LINENO '--p-mulit-login' "'${__policy_multi_login}'";
 
-    declare -x __params="$(yq '.result' <<< $quary_result | jq '.')";
+    # declare -x __params="$(yq '.result' <<< $quary_result | jq '.')";
+    declare -x __params="$(yq '.result' <<< "$rpc_json" | jq '.')";
     yq -Po json -n '{"jsonrpc": "2.0"} + {"id":"rpc_call_id"} + {"method":"'"${FUNCNAME/*:/}"'"} + { "params": eval(strenv(__params)) }';
 }
 
@@ -928,24 +929,42 @@ public::parse(){
     private::debug $LINENO '--method' "'${__method}'";
 
    case $__method in
-       GetServerInfo | GetServerStatus | CreateUser | SetUser | GetUser | DeleteUser )
+       GetServerInfo | GetServerStatus | CreateUser | SetUser | DeleteUser )
            echo "$rpc_json" | jq | yq -Po yaml '.result  | .[] |= select(tag == "!!str") |= sub("\s+", "-")' | column -t
        ;;
        EnumListener )
            echo "$rpc_json" | jq | yq -Po yaml '.result.ListenerList[] | [  { "port": .Ports_u32, "active": .Enables_bool, "error": .Errors_bool } ]'
+       ;;
+       GetUser )
+           jq <<< "$rpc_json" | yq  '.result.HubName_str as $hub | .result | [ { "hub": $hub, "username": .Name_str, "realname": .Realname_utf, "access": ."policy:Access_bool", "logins": .NumLogin_u32, "ctime": .CreatedTime_dt, "etime": .ExpireTime_dt,   "traffic":  { "have": .Note_utf, "used": [ .*Bytes* ] | map(. as $item ireduce (0; . + $item)) | .[] } } ] | .[].traffic.have tag= "!!int" | .[].traffic.rest = .[].traffic.have - .[].traffic.used '  -Po yaml
        ;;
        EnumUser )
            # found bug on yq v4.21 for Compare Operators
            # echo "$rpc_json" | yq  '.result.UserList [] | [ { "name": .Name_str, "blocked": .DenyAccess_bool, "real_name": .Realname_utf, "logins": .NumLogin_u32, "last_login": .LastLoginTime_dt, "traffic_max": .Note_utf , "traffic_used": [ .*Bytes* ] | map(. as $item ireduce (0; . + $item)) | .[] } ] | .[].traffic_max tag= "!!int" | ' -Po yaml
 
            # did not have that bug using yq v4.31 for Compare Operators
-           echo "$rpc_json" | yq  '.result.HubName_str as $hub | .result.UserList [] | [ { "hub": $hub, "name": .Name_str, "logins": .NumLogin_u32,"blocked": .DenyAccess_bool, "real_name": .Realname_utf, "last_login": .LastLoginTime_dt,    "traffic":  { "have": .Note_utf, "used": [ .*Bytes* ] | map(. as $item ireduce (0; . + $item)) | .[] } } ] | .[].traffic.have tag= "!!int" | .[].traffic.rest = .[].traffic.have - .[].traffic.used '  -Po yaml
+           jq <<< "$rpc_json" | yq  '.result.HubName_str as $hub | .result.UserList [] | [ { "hub": $hub, "username": .Name_str, "realname": .Realname_utf, "blocked": .DenyAccess_bool, "logins": .NumLogin_u32,  "llogin": .LastLoginTime_dt,  "traffic":  { "have": .Note_utf, "used": [ .*Bytes* ] | map(. as $item ireduce (0; . + $item)) | .[] } } ] | .[].traffic.have tag= "!!int" | .[].traffic.rest = .[].traffic.have - .[].traffic.used '  -Po yaml
        ;;
        * )
             printf 'unknown option: %s\n' $__method;
             private::${FUNCNAME/*:/} $ERR_EXPR_FAILED;
        ;;
    esac
+}
+
+public::reset(){
+    declare -x rpc_json;
+    if (( ${#} == 0 )); then
+        if ! [[ -p /dev/stdin ]]; then
+            private::${FUNCNAME/*:/} $ERR_EXPR_FAILED;
+        fi
+    fi
+
+    if [[ -p /dev/stdin ]]; then
+        rpc_json=$(< /dev/stdin);
+    fi
+
+    jq <<< "$rpc_json" | yq '.result.*Bytes_u64=0, .result.*Count_u64=0' -Po json
 }
 
 ################################################################################
@@ -1017,6 +1036,7 @@ private::main_help(){
     printf "%-${HELP_OFFSET}s %s\n" 'config' 'read SE server admin yaml file';
     printf "%-${HELP_OFFSET}s %s\n" 'apply' 'send RPC-JSON to SE server';
     printf "%-${HELP_OFFSET}s %s\n" 'parse' 'parse SE server response';
+    printf "%-${HELP_OFFSET}s %s\n" 'reset' 'reset Bytes and Counts';
     
     printf "\nRPC API commands:\n";
     printf "%-${HELP_OFFSET}s %s\n" 'Test' 'Test RPC function';
@@ -1081,7 +1101,7 @@ private::main(){
     fi
 
     case ${1} in
-        config | apply | parse | Test | GetServerInfo | GetServerStatus | CreateListener | EnumListener | DeleteListener | EnableListener | CreateUser | SetUser | GetUser | DeleteUser | EnumUser )
+        config | apply | parse | reset | Test | GetServerInfo | GetServerStatus | CreateListener | EnumListener | DeleteListener | EnableListener | CreateUser | SetUser | GetUser | DeleteUser | EnumUser )
             private::debug $LINENO 'command:' "'${1}'";
             private::debug $LINENO 'command-options:' "'${@:2}'";
             public::${1} "${@:2}";
