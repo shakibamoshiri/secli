@@ -385,11 +385,13 @@ public::CreateUser(){
         printf "%-${HELP_OFFSET}s %s\n" "-p  | --pass" "a password to set for user name";
         printf "%-${HELP_OFFSET}s %s\n" "-r  | --realname" "full name for a user";
         printf "%-${HELP_OFFSET}s %s\n" "-n  | --note" "note  for a user";
+        printf "%-${HELP_OFFSET}s %s\n" "-e  | --e-time" "expire time in days";
         printf "%-${HELP_OFFSET}s %s\n" "-a  | --auth-type" "type for authentication [0-5], default=1";
         printf "%-${HELP_OFFSET}s %s\n" "-P  | --p-rule" "enable policy rules for a user [=false|true]";
         printf "%-${HELP_OFFSET}s %s\n" "-Pa | --p-access" "policy: access for a user [=true|false]";
-        printf "%-${HELP_OFFSET}s %s\n" "-Pf | --p-fix-pass" "policy: fix password for a user [=true|false]";
-        printf "%-${HELP_OFFSET}s %s\n" "-Pm | --p-mulit-login" "policy: multiple login  for a user [=1]";
+        printf "%-${HELP_OFFSET}s %s\n" "-Pp | --p-fix-pass" "policy: fix password for a user [=true|false]";
+        printf "%-${HELP_OFFSET}s %s\n" "-Pl | --p-mulit-l" "policy: multiple login  for a user [=1]";
+        printf "%-${HELP_OFFSET}s %s\n" "-Pd | --p-max-dl" "policy: max download speed";
 
         exit ${1:-1};
     }
@@ -402,12 +404,14 @@ public::CreateUser(){
     declare __user_name='';
     declare __user_pass='';
     declare __real_name='';
-    declare __user_note='';
+    declare __user_note='1000000000';
+    declare __expire_time=$(date +%FT%T -d "+3 days");
     declare __auth_type=1;
-    declare __policy_rule='false';
+    declare __policy_rule='true';
     declare __policy_access='true';
     declare __policy_fix_pass='true';
     declare __policy_multi_login=1;
+    declare -i __policy_max_download=0;
 
     # policy:MaxConnection_u32
     declare __policy_max_tcp_con=32;
@@ -439,6 +443,11 @@ public::CreateUser(){
                 __user_note="${2:?Error: a note is needed}";
                 shift 2;
             ;;
+            -e | --e-time )
+                __expire_time="${2:?Error: a <number> is needed}";
+                __expire_time=$(date +%FT%T -d "+${__expire_time} days");
+                shift 2;
+            ;;
             -a | --auth-type )
                 __auth_type="${2:?Error: a <number> is needed [0-5}";
                 shift 2;
@@ -451,12 +460,16 @@ public::CreateUser(){
                 __policy_access="${2:?Error: a <true/false> is needed}";
                 shift 2;
             ;;
-            -Pf | --p-fix-pass )
+            -Pp | --p-fix-pass )
                 __policy_fix_pass="${2:?Error: a <true/false> is needed}";
                 shift 2;
             ;;
-            -Pm | --p-mulit-login )
+            -Pl | --p-mulit-l )
                 __policy_multi_login="${2:?Error: a <true/false> is needed}";
+                shift 2;
+            ;;
+            -Pd | --p-max-dl )
+                __policy_max_download="${2:?Error: a <number> is needed}";
                 shift 2;
             ;;
 
@@ -480,13 +493,14 @@ public::CreateUser(){
     private::debug $LINENO '--p-access' "'${__policy_access}'";
     private::debug $LINENO '--p-fix-pass' "'${__policy_fix_pass}'";
     private::debug $LINENO '--p-mulit-login' "'${__policy_multi_login}'";
+    private::debug $LINENO '--p-max-dl' "'${__policy_max_download}'";
 
     declare -x __params=' "params": {
         "HubName_str": "'"${__hub}"'",
         "Name_str": "'"${__user_name}"'",
         "Realname_utf": "'"${__real_name}"'",
         "Note_utf": "'"${__user_note}"'",
-        "ExpireTime_dt": "",
+        "ExpireTime_dt": "'"${__expire_time}"'",
         "AuthType_u32": '${__auth_type}',
         "Auth_Password_str": "'"${__user_pass}"'",
         "UsePolicy_bool": '${__policy_rule}',
@@ -494,7 +508,8 @@ public::CreateUser(){
         "policy:MaxConnection_u32": 32,
         "policy:TimeOut_u32": 20,
         "policy:FixPassword_bool": true,
-        "policy:MultiLogins_u32": '${__policy_multi_login}'
+        "policy:MultiLogins_u32": '${__policy_multi_login}',
+        "policy:MaxDownload_u32": '${__policy_max_download}'
     }';
 
     yq -n '{"jsonrpc": "2.0"} + {"id":"rpc_call_id"} + {"method":"'"${FUNCNAME/*:/}"'"} + { eval(strenv(__params)) }' -Po json
@@ -518,10 +533,30 @@ public::SetUser(){
         exit ${1:-1};
     }
 
-    declare quary_result='';
+    # declare quary_result='';
+    # if (( ${#} == 0 )); then
+    #     private::${FUNCNAME/*:/} $ERR_EXPR_FAILED;
+    # fi
+
+
+    declare -x rpc_json;
     if (( ${#} == 0 )); then
-        private::${FUNCNAME/*:/} $ERR_EXPR_FAILED;
+        if ! [[ -p /dev/stdin ]]; then
+            private::${FUNCNAME/*:/} $ERR_EXPR_FAILED;
+        fi
     fi
+
+    if [[ -p /dev/stdin ]]; then
+        rpc_json=$(< /dev/stdin);
+
+        if [[ -z $rpc_json ]]; then
+            printf "rpc_json is null/empty\n";
+            exit $ERR_EXPR_FAILED;
+        fi
+    fi
+
+    # echo quary_result "$quary_result"
+    # exit 0;
 
     # if ! [[ -p /dev/stdin ]]; then
     #     private::${FUNCNAME/*:/} $ERR_EXPR_FAILED;
@@ -552,52 +587,52 @@ public::SetUser(){
             -h | --hub )
                 __hub="${2:?Error: a hub <name> is needed}";
                 shift 2;
-                quary_result=$(yq '.result.HubName_str="'"${__hub}"'"  ' -Po json <<< "$quary_result");
+                rpc_json=$(yq '.result.HubName_str="'"${__hub}"'"  ' -Po json <<< "$rpc_json");
             ;;
             -p | --user )
                 __user_name="${2:?Error: a user <name> is needed}";
                 shift 2;
-                quary_result=$(yq '.result.Name_str="'"${__user_name}"'"  ' -Po json <<< "$quary_result");
+                rpc_json=$(yq '.result.Name_str="'"${__user_name}"'"  ' -Po json <<< "$rpc_json");
             ;;
             -p | --pass )
                 __user_pass="${2:?Error: a password is needed}";
                 shift 2;
-                quary_result=$(yq '.result.Auth_Password_str="'"${__real_name}"'"  ' -Po json <<< "$quary_result");
+                rpc_json=$(yq '.result.Auth_Password_str="'"${__real_name}"'"  ' -Po json <<< "$rpc_json");
             ;;
             -r | --real )
                 __real_name="${2:?Error: a full <name> is needed}";
                 shift 2;
-                quary_result=$(yq '.result.Realname_utf="'"${__real_name}"'"  ' -Po json <<< "$quary_result");
+                rpc_json=$(yq '.result.Realname_utf="'"${__real_name}"'"  ' -Po json <<< "$rpc_json");
             ;;
             -n | --note )
                 __user_note="${2:?Error: a note is needed}";
                 shift 2;
-                quary_result=$(yq '.result.Note_utf="'"${__user_note}"'"  ' -Po json <<< "$quary_result");
+                rpc_json=$(yq '.result.Note_utf="'"${__user_note}"'"  ' -Po json <<< "$rpc_json");
             ;;
             -a | --auth-type )
                 __auth_type="${2:?Error: a <number> is needed [0-5}";
                 shift 2;
-                quary_result=$(yq '.result.AuthType_u32='${__auth_type}'  ' -Po json <<< "$quary_result");
+                rpc_json=$(yq '.result.AuthType_u32='${__auth_type}'  ' -Po json <<< "$rpc_json");
             ;;
             -P | --p-rule )
                 __policy_rule="${2:?Error: a <true/false> is needed}";
                 shift 2;
-                quary_result=$(yq '.result.UsePolicy_bool='${__policy_rule}'  ' -Po json <<< "$quary_result");
+                rpc_json=$(yq '.result.UsePolicy_bool='${__policy_rule}'  ' -Po json <<< "$rpc_json");
             ;;
             -Pa | --p-access )
                 __policy_access="${2:?Error: a <true/false> is needed}";
                 shift 2;
-                quary_result=$(yq '.result."policy:Access_bool"='${__policy_access}'  ' -Po json <<< "$quary_result");
+                rpc_json=$(yq '.result."policy:Access_bool"='${__policy_access}'  ' -Po json <<< "$rpc_json");
             ;;
             -Pf | --p-fix-pass )
                 __policy_fix_pass="${2:?Error: a <true/false> is needed}";
                 shift 2;
-                quary_result=$(yq '.result."policy:FixPassword_bool"='${__policy_fix_pass}'  ' -Po json <<< "$quary_result");
+                rpc_json=$(yq '.result."policy:FixPassword_bool"='${__policy_fix_pass}'  ' -Po json <<< "$rpc_json");
             ;;
             -Pm | --p-mulit-login )
                 __policy_multi_login="${2:?Error: a <true/false> is needed}";
                 shift 2;
-                quary_result=$(yq '.result."policy:MultiLogins_u32"='${__policy_multi_login}' ' -Po json <<< "$quary_result");
+                rpc_json=$(yq '.result."policy:MultiLogins_u32"='${__policy_multi_login}' ' -Po json <<< "$rpc_json");
             ;;
 
             * )
