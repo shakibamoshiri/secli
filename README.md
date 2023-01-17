@@ -202,7 +202,7 @@ Here is a script you can use [shots/statuser.png](shots/statuser.png)
 
 **Screenshot**
 
-![statuser.png](./shots/disableuser.png)
+![statuser.png](./shots/statuser.png)
 
 **Bash Script**
 
