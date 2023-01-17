@@ -19,7 +19,11 @@ This architecture helps to have:
 - software testability
 - software modularity
 - software extendability
+- component/function reusability
 - and more
+
+[See Software Non-functional requirement](https://en.wikipedia.org/wiki/Non-functional_requirement).  
+
 
 Thus `secli` does not follow traditional option based CLIs, as you might expect like bellow samples:
 
