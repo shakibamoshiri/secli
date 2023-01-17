@@ -33,7 +33,7 @@ Thus `secli` does not follow traditional option based CLIs, as you might expect 
 
 And `secli` handles its functionality using pipe (**Name Pipe in Linux** == `|`). Here are examples
 
-### Run Test query, no thing else
+### run Test query, no thing else
 
 ```bash
 ./secli.sh Test
@@ -49,7 +49,7 @@ And `secli` handles its functionality using pipe (**Name Pipe in Linux** == `|`)
 
  - Test: the JSON-RPC for testing the server is up or no
 
-### Run Test + add server configuration
+### run Test + add server configuration
 
 ```bash
 ./secli.sh Test | ./secli.sh config -f sample.admin.yaml -t usa
@@ -73,7 +73,7 @@ And `secli` handles its functionality using pipe (**Name Pipe in Linux** == `|`)
  - Test: the JSON-RPC for testing the server is up or no
  - config: add our server credentials to the JSON-RPC 
 
-### Run Test + Config + apply it
+### run Test + Config + apply it
 
 ```
 ./secli.sh Test | ./secli.sh config -f sample.admin.yaml -t usa | ./secli.sh apply
@@ -116,6 +116,80 @@ And `secli` handles its functionality using pipe (**Name Pipe in Linux** == `|`)
  - parse: parse GetUser output and convert it to YAML
 
 The YAML output is produced by `secli` parsing SE server response which is in JSON. `secil` converts JSON to YAML.  
+
+## challenges you can solve with `secli`
+Here are some common challenges SE users face.  
+You can use `secli` to tackle them.  
+
+### disable a user or users (more than one)
+
+**First**
+
+Get/Save list of all user names
+
+```bash
+./secli EnumUser --hub VPN | \
+    ./secli config -f admin.yaml -t usa | \
+    ./secli apply | \
+    jq -r '.result.UserList[].Name_str' > list.txt
+```
+
+ - HUB is `VPN`
+ - server is usa
+
+
+**Second**
+
+Get targeted server and user names to deal with 
+
+```bash
+declare _hub="${1:?hub name}";
+declare _target="${2:?target name}"
+declare -a list_users=(${@:3});
+
+if (( ${#list_users[0]} == 0 )); then
+    printf 'at least one user name is needed\n';
+    exit 1;
+fi
+```
+
+and find them if matched + call a function to disable them.  
+
+```bash
+while read username; do
+    for a_user in "${list_users[@]}"; do
+        if [[ $username == $a_user ]]; then
+            block_user $username;
+        fi
+    done
+done < list.txt;
+```
+
+**Third**  
+
+Block them and show the result for each user
+
+```bash
+function block_user(){
+    declare username;
+    username="${1:?user name is needed}";
+    printf 'try to block %s\n' $username;
+
+    ./secli GetUser  --hub $_hub --user $username | \
+    ./secli config -f admin.yaml -t $_target | \
+    ./secli apply | \
+    jq '.result."policy:Access_bool"=false' | \
+    ./secli SetUser | \
+    ./secli config -f admin.yaml -t $_target | \
+    ./secli apply | \
+    jq '{ "task": "done", "user": .result.Name_str, "access": .result."policy:Access_bool" }'
+}
+```
+
+**Screenshot**
+
+![disableuser.png](./shots/disableuser.png)
+
 
 ## JSON-RPCs have been added
 
