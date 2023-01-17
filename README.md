@@ -123,7 +123,7 @@ The YAML output is produced by `secli` parsing SE server response which is in JS
 Here are some common challenges SE users face.  
 You can use `secli` to tackle them.  
 
-### disable a user or users (more than one)
+### 1. disable a user or users (more than one)
 
 **First**
 
@@ -196,8 +196,9 @@ function block_user(){
 
 Here is a script you can use [shots/statuser.png](shots/statuser.png)
 
+---
 
-### stat a user or users (more than one)
+### 2. stat a user or users (more than one)
 
 **Screenshot**
 
