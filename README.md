@@ -117,6 +117,8 @@ And `secli` handles its functionality using pipe (**Name Pipe in Linux** == `|`)
 
 The YAML output is produced by `secli` parsing SE server response which is in JSON. `secil` converts JSON to YAML.  
 
+---
+
 ## challenges you can solve with `secli`
 Here are some common challenges SE users face.  
 You can use `secli` to tackle them.  
