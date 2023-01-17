@@ -33,6 +33,41 @@ private::strict_mode(){
 }
 private::strict_mode;
 
+################################################################################
+#
+# check for dependencies and commands
+#
+################################################################################
+private::import(){
+    declare -r command_name=$1;
+
+    if ! which $command_name > /dev/null 2>&1; then
+        printf 'command %s not found\n' $command_name;
+        printf 'install %s from:\n' $command_name;
+        case $command_name in
+            yq )
+                echo 'https://github.com/mikefarah/yq';
+            ;;
+            jq )
+                echo 'https://stedolan.github.io/jq/download/';
+            ;;
+            perl | printf | echo )
+                echo 'your package manager, apt-get, yum, dnf, apk, etc';
+            ;;
+            * )
+                echo 'your OS repository or search the Internet';
+            ;;
+        esac
+        exit 1;
+    fi
+}
+
+private::import yq
+private::import jq
+private::import perl
+private::import printf
+private::import echo
+
 #four functions to change output in color
 private::info() { printf "\033[1;34m${*}\033[0m\n"; }
 private::warn() { printf "\033[1;33m${*}\033[0m\n" 1>&2; }
