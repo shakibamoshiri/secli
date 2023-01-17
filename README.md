@@ -89,7 +89,7 @@ And `secli` handles its functionality using pipe (**Name Pipe in Linux** == `|`)
  - config: add our server credentials to the JSON-RPC 
  - apply: send JSON-RPC of Test to server and use credentials for authentication
 
-### Getuser info  (real example)
+### GetUser info  (real example)
 
 ```bash
 ./secli.sh GetUser --hub VPN --user <***>  | ./secli.sh config -f admin.yaml -t usa | ./secli.sh apply | ./secli.sh parse -m GetUser
