@@ -190,6 +190,11 @@ function block_user(){
 
 ![disableuser.png](./shots/disableuser.png)
 
+**Bash Script**
+
+Here is this script you can use [scripts/disableuser.sh](scripts/disableuser.sh)
+
+---
 
 ## JSON-RPCs have been added
 
