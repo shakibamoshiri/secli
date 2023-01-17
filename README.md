@@ -194,7 +194,19 @@ function block_user(){
 
 **Bash Script**
 
-Here is this script you can use [scripts/disableuser.sh](scripts/disableuser.sh)
+Here is a script you can use [shots/statuser.png](shots/statuser.png)
+
+
+### stat a user or users (more than one)
+
+**Screenshot**
+
+![statuser.png](./shots/disableuser.png)
+
+**Bash Script**
+
+Here is a script you can use [scripts/statuser.sh](scripts/statuser.sh)
+
 
 ---
 
