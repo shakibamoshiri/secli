@@ -115,20 +115,20 @@ The YAML output is produced by `secli` parsing SE server response which is in JS
 
 ## JSON-RPCs have been added
 
- - Test                 Test RPC function
- - GetServerInfo        Get server information
- - GetServerStatus      Get Current Server Status
- - CreateListener       Create New TCP Listener
- - EnumListener         Get List of TCP Listeners
- - DeleteListener       Delete TCP Listener
- - EnableListener       Enable / Disable TCP Listener
- - CreateUser           Create a user
- - SetUser              Change User Settings
- - GetUser              Get User Settings
- - DeleteUser           Delete a user
- - EnumUser             Get List of Users
+ - `Test                 Test RPC function`
+ - `GetServerInfo        Get server information`
+ - `GetServerStatus      Get Current Server Status`
+ - `CreateListener       Create New TCP Listener`
+ - `EnumListener         Get List of TCP Listeners`
+ - `DeleteListener       Delete TCP Listener`
+ - `EnableListener       Enable / Disable TCP Listener`
+ - `CreateUser           Create a user`
+ - `SetUser              Change User Settings`
+ - `GetUser              Get User Settings`
+ - `DeleteUser           Delete a user`
+ - `EnumUser             Get List of Users`
 
 Others will be added gradually.  
-You can ask/request for new JSON-RPC be added or contribute and send PR (Pull Request).
-
+You can ask/request for new JSON-RPC be added or contribute and send PR (Pull Request).  
+[Here is the full list](https://github.com/SoftEtherVPN/SoftEtherVPN/tree/master/developer_tools/vpnserver-jsonrpc-clients).
 
