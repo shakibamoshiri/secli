@@ -965,20 +965,17 @@ public::parse(){
 
    case $__method in
        GetServerInfo | GetServerStatus | CreateUser | SetUser | DeleteUser )
-           echo "$rpc_json" | jq | yq -Po yaml '.result  | .[] |= select(tag == "!!str") |= sub("\s+", "-")' | column -t
+           # echo "$rpc_json" | jq | yq -Po yaml '.result  | .[] |= select(tag == "!!str") |= sub("\s+", "-")' | column -t
+           jq '.result' <<< "$rpc_json";
        ;;
        EnumListener )
-           echo "$rpc_json" | jq | yq -Po yaml '.result.ListenerList[] | [  { "port": .Ports_u32, "active": .Enables_bool, "error": .Errors_bool } ]'
+           jq '[ .result.ListenerList[] | { "port": .Ports_u32, "active": .Enables_bool, "error": .Errors_bool } ]' <<< "$rpc_json";
        ;;
        GetUser )
-           jq <<< "$rpc_json" | yq  '.result.HubName_str as $hub | .result | [ { "hub": $hub, "username": .Name_str, "realname": .Realname_utf, "access": ."policy:Access_bool", "logins": .NumLogin_u32, "ctime": .CreatedTime_dt, "etime": .ExpireTime_dt,   "traffic":  { "have": .Note_utf, "used": [ .*Bytes* ] | map(. as $item ireduce (0; . + $item)) | .[] } } ] | .[].traffic.have tag= "!!int" | .[].traffic.rest = .[].traffic.have - .[].traffic.used '  -Po yaml
+           jq '.result.HubName_str as $hub | .result | .Note_utf as $have | (to_entries | map(select(.key | match("byte";"i"))) | map(.value) | add) as $used | { hub: $hub, username: .Name_str, realname: .Realname_utf, access: ."policy:Access_bool", "logins": .NumLogin_u32, ctime: .CreatedTime_dt, etime: .ExpireTime_dt, traffic: {  have: $have | tonumber, used: $used , rest: ($have | tonumber - $used) } }' <<< "$rpc_json";
        ;;
        EnumUser )
-           # found bug on yq v4.21 for Compare Operators
-           # echo "$rpc_json" | yq  '.result.UserList [] | [ { "name": .Name_str, "blocked": .DenyAccess_bool, "real_name": .Realname_utf, "logins": .NumLogin_u32, "last_login": .LastLoginTime_dt, "traffic_max": .Note_utf , "traffic_used": [ .*Bytes* ] | map(. as $item ireduce (0; . + $item)) | .[] } ] | .[].traffic_max tag= "!!int" | ' -Po yaml
-
-           # did not have that bug using yq v4.31 for Compare Operators
-           jq <<< "$rpc_json" | yq  '.result.HubName_str as $hub | .result.UserList [] | [ { "hub": $hub, "username": .Name_str, "realname": .Realname_utf, "blocked": .DenyAccess_bool, "logins": .NumLogin_u32,  "llogin": .LastLoginTime_dt,  "traffic":  { "have": .Note_utf, "used": [ .*Bytes* ] | map(. as $item ireduce (0; . + $item)) | .[] } } ] | .[].traffic.have tag= "!!int" | .[].traffic.rest = .[].traffic.have - .[].traffic.used '  -Po yaml
+           jq '[ .result.HubName_str as $hub | .result.UserList [] | .Note_utf as $have | (to_entries | map(select(.key | match("byte";"i"))) | map(.value) | add) as $used | { hub: $hub, username: .Name_str, realname: .Realname_utf, blocked: .DenyAccess_bool, logins: .NumLogin_u32,  llogin: .LastLoginTime_dt, traffic: {  have: $have | tonumber, used: $used , rest: ($have | tonumber - $used) } }] ' <<< "$rpc_json";
        ;;
        * )
             printf 'unknown option: %s\n' $__method;
