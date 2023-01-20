@@ -11,10 +11,9 @@ if (( ${#list_users[0]} == 0 )); then
     exit 1;
 fi
 
-function check_user(){
+function get_user(){
     declare username;
     username="${1:?user name is needed}";
-    printf 'try to stat %s\n' $username;
 
     ./secli GetUser --hub $_hub --user $username | \
     ./secli config -f admin.yaml -t $_target | \
@@ -31,7 +30,7 @@ function check_user(){
 while read username; do
     for a_user in "${list_users[@]}"; do
         if [[ $username == $a_user ]]; then
-            check_user $username;
+            get_user $username;
         fi
     done
 done < list.txt;
