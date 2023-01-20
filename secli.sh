@@ -963,7 +963,7 @@ public::parse(){
 
     private::debug $LINENO '--method' "'${__method}'";
 
-   case $__method in
+    case $__method in
        GetServerInfo | GetServerStatus | CreateUser | SetUser | DeleteUser )
            # echo "$rpc_json" | jq | yq -Po yaml '.result  | .[] |= select(tag == "!!str") |= sub("\s+", "-")' | column -t
            jq '.result' <<< "$rpc_json";
@@ -972,13 +972,14 @@ public::parse(){
            jq '[ .result.ListenerList[] | { "port": .Ports_u32, "active": .Enables_bool, "error": .Errors_bool } ]' <<< "$rpc_json";
        ;;
        GetUser )
-           jq '.result.HubName_str as $hub |
+            jq '.result.HubName_str as $hub |
                 (.result.CreatedTime_dt | sub("(?<time>.*)\\..*Z"; "\(.time)Z")) as $ctime |
                 (.result.ExpireTime_dt | sub("(?<time>.*)\\..*Z"; "\(.time)Z")) as $etime |
                 .result |
                 .Note_utf as $have |
                 (to_entries | map(select(.key | match("byte";"i"))) | map(.value) | add) as $used |
-                { hub: $hub, username: .Name_str, realname: .Realname_utf, access: ."policy:Access_bool", "logins": .NumLogin_u32, ctime: $ctime, etime: $etime,
+                { hub: $hub, username: .Name_str, realname: .Realname_utf, access: ."policy:Access_bool",
+                nlogin: .NumLogin_u32, mlogin: ."policy:MultiLogins_u32", policy: .UsePolicy_bool, group: .GroupName_str,  ctime: $ctime, etime: $etime,
                 traffic: {  have: $have | tonumber, used: $used , rest: ($have | tonumber - $used) } }' <<< "$rpc_json";
        ;;
        EnumUser )
