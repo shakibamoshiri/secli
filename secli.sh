@@ -972,10 +972,36 @@ public::parse(){
            jq '[ .result.ListenerList[] | { "port": .Ports_u32, "active": .Enables_bool, "error": .Errors_bool } ]' <<< "$rpc_json";
        ;;
        GetUser )
-           jq '.result.HubName_str as $hub | .result | .Note_utf as $have | (to_entries | map(select(.key | match("byte";"i"))) | map(.value) | add) as $used | { hub: $hub, username: .Name_str, realname: .Realname_utf, access: ."policy:Access_bool", "logins": .NumLogin_u32, ctime: .CreatedTime_dt, etime: .ExpireTime_dt, traffic: {  have: $have | tonumber, used: $used , rest: ($have | tonumber - $used) } }' <<< "$rpc_json";
+           jq '.result.HubName_str as $hub |
+                (.result.CreatedTime_dt | sub("(?<time>.*)\\..*Z"; "\(.time)Z")) as $ctime |
+                (.result.ExpireTime_dt | sub("(?<time>.*)\\..*Z"; "\(.time)Z")) as $etime |
+                .result |
+                .Note_utf as $have |
+                (to_entries | map(select(.key | match("byte";"i"))) | map(.value) | add) as $used |
+                { hub: $hub, username: .Name_str, realname: .Realname_utf, access: ."policy:Access_bool", "logins": .NumLogin_u32, ctime: $ctime, etime: $etime,
+                traffic: {  have: $have | tonumber, used: $used , rest: ($have | tonumber - $used) } }' <<< "$rpc_json";
        ;;
        EnumUser )
-           jq '[ .result.HubName_str as $hub | .result.UserList [] | .Note_utf as $have | (to_entries | map(select(.key | match("byte";"i"))) | map(.value) | add) as $used | { hub: $hub, username: .Name_str, realname: .Realname_utf, blocked: .DenyAccess_bool, logins: .NumLogin_u32,  llogin: .LastLoginTime_dt, traffic: {  have: $have | tonumber, used: $used , rest: ($have | tonumber - $used) } }] ' <<< "$rpc_json";
+           jq '[ .result.HubName_str as $hub |
+                  .result.UserList [] |
+                  (.Expires_dt | sub("(?<time>.*)\\..*Z"; "\(.time)Z")) as $etime |
+                  (.LastLoginTime_dt | sub("(?<time>.*)\\..*Z"; "\(.time)Z")) as $llogin |
+                  .Note_utf as $have |
+                  (to_entries | map(select(.key | match("byte";"i"))) | map(.value) | add) as $used |
+                  { hub: $hub, username: .Name_str, realname: .Realname_utf, blocked: .DenyAccess_bool, logins: .NumLogin_u32, etime: $etime, llogin: $llogin,
+                  traffic: {  have: $have | tonumber, used: $used , rest: ($have | tonumber - $used) } }]' <<< "$rpc_json";
+       ;;
+       GetUser_PayAsYouGo )
+           jq '.result.HubName_str as $hub |
+                ( .result.CreatedTime_dt | sub("(?<time>.*)\\..*Z"; "\(.time)Z")) as $ctime |
+                ( .result.ExpireTime_dt | sub("(?<time>.*)\\..*Z"; "\(.time)Z")) as $etime |
+                ( ( now - ( $ctime | fromdate )) / (24*60*60) | floor ) as $days  |
+                .result |
+                .Note_utf as $have |
+                ( to_entries | map(select(.key | match("byte";"i"))) | map(.value) | add) as $used |
+                { hub: $hub, username: .Name_str, realname: .Realname_utf, access: ."policy:Access_bool", "logins": .NumLogin_u32,
+                ctime: $ctime, etime: $etime, days: $days, pay_as_you_go: ( ($used / 1000000) + ($days * 500) | round )
+                ,traffic: {  have: $have | tonumber, used: $used , rest: ($have | tonumber - $used) } }' <<< "$rpc_json";
        ;;
        * )
             printf 'unknown option: %s\n' $__method;
