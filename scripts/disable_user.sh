@@ -14,7 +14,6 @@ fi
 function block_user(){
     declare username;
     username="${1:?user name is needed}";
-    printf 'try to block %s\n' $username;
 
     ./secli GetUser  --hub $_hub --user $username | \
     ./secli config -f admin.yaml -t $_target | \
@@ -23,7 +22,7 @@ function block_user(){
     ./secli SetUser | \
     ./secli config -f admin.yaml -t $_target | \
     ./secli apply | \
-    jq '{ "task": "done", "user": .result.Name_str, "access": .result."policy:Access_bool" }'
+    jq -c '{ "task": "done", "user": .result.Name_str, "access": .result."policy:Access_bool" }'
 }
 
 ./secli EnumUser --hub $_hub | \
