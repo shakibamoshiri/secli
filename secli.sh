@@ -439,8 +439,8 @@ public::CreateUser(){
     declare __user_name='';
     declare __user_pass='';
     declare __real_name='';
-    declare __user_note='1000000000';
-    declare __expire_time=$(date +%FT%T -d "+3 days");
+    declare -i __user_note=1;
+    declare __expire_time=$(date +%FT%T -d "+29 days");
     declare __auth_type=1;
     declare __policy_rule='true';
     declare __policy_access='true';
@@ -515,15 +515,16 @@ public::CreateUser(){
         esac
     done
     
-    : __hub="${__hub:?Error: a hub <name> is needed}";
-    : __user_name="${__user_name:?Error: a user <name> is needed}";
-    : __user_pass="${__user_pass:?Error: a user <password> is needed}";
+    : __hub="${__hub:?Error: __hub has not been set}";
+    : __user_name="${__user_name:?Error: __user_name has not been set}";
+    : __user_pass="${__user_pass:?Error: __user_pass has not been set}";
+    : __real_name="${__real_name:?Error: __real_name has not been set}";
 
     private::debug $LINENO '--hub' "'${__hub}'";
     private::debug $LINENO '--user' "'${__user_name}'";
     private::debug $LINENO '--pass' "'${__user_pass}'";
     private::debug $LINENO '--real' "'${__real_name}'";
-    private::debug $LINENO '--note' "'${__user_note}'";
+    private::debug $LINENO '--note' "'$((${__user_note} * 1000000000))'";
     private::debug $LINENO '--p-rule' "'${__policy_rule}'";
     private::debug $LINENO '--p-access' "'${__policy_access}'";
     private::debug $LINENO '--p-fix-pass' "'${__policy_fix_pass}'";
@@ -534,7 +535,7 @@ public::CreateUser(){
         "HubName_str": "'"${__hub}"'",
         "Name_str": "'"${__user_name}"'",
         "Realname_utf": "'"${__real_name}"'",
-        "Note_utf": "'"${__user_note}"'",
+        "Note_utf": "'"$((${__user_note} * 1000000000))"'",
         "ExpireTime_dt": "'"${__expire_time}"'",
         "AuthType_u32": '${__auth_type}',
         "Auth_Password_str": "'"${__user_pass}"'",
