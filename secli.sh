@@ -1089,19 +1089,27 @@ private::main_help(){
     printf "\nRPC API commands:\n";
     printf "%-${HELP_OFFSET}s %s\n" 'Test' 'Test RPC function';
 
+    printf "\n";
     printf "%-${HELP_OFFSET}s %s\n" 'GetServerInfo' 'Get server information';
     printf "%-${HELP_OFFSET}s %s\n" 'GetServerStatus' 'Get Current Server Status';
 
+    printf "\n";
     printf "%-${HELP_OFFSET}s %s\n" 'CreateListener' 'Create New TCP Listener';
     printf "%-${HELP_OFFSET}s %s\n" 'EnumListener' 'Get List of TCP Listeners';
     printf "%-${HELP_OFFSET}s %s\n" 'DeleteListener' 'Delete TCP Listener';
     printf "%-${HELP_OFFSET}s %s\n" 'EnableListener' 'Enable / Disable TCP Listener';
 
+    printf "\n";
     printf "%-${HELP_OFFSET}s %s\n" 'CreateUser' 'Create a user';
     printf "%-${HELP_OFFSET}s %s\n" 'SetUser' 'Change User Settings';
     printf "%-${HELP_OFFSET}s %s\n" 'GetUser' 'Get User Settings';
     printf "%-${HELP_OFFSET}s %s\n" 'DeleteUser' 'Delete a user';
     printf "%-${HELP_OFFSET}s %s\n" 'EnumUser' 'Get List of Users';
+
+    printf "\n";
+    printf "%-${HELP_OFFSET}s %s\n" 'EnumSession' 'Get List of Connected VPN Sessions';
+    printf "%-${HELP_OFFSET}s %s\n" 'GetSessionStatus' 'Get Session Status';
+    printf "%-${HELP_OFFSET}s %s\n" 'DeleteSession' 'Disconnect Session';
 
     exit ${1:-1};
 }
