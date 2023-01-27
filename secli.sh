@@ -846,6 +846,52 @@ public::EnumUser(){
     yq -n '{"jsonrpc": "2.0"} + {"id":"rpc_call_id"} + {"method":"'"$SEmethod"'"} + { eval(strenv(__params)) }' -Po json
 }
 
+public::EnumSession(){
+    private::strict_mode;
+    private::EnumSession(){
+        printf "${FUNCNAME/*:/}\n\n";
+        printf "%-${HELP_OFFSET}s %s\n" "-h  | --help" "show this help";
+        printf "%-${HELP_OFFSET}s %s\n" "-H  | --hub" "a valid hub name on SE server";
+
+        exit ${1:-1};
+    }
+
+    if (( ${#} == 0 )); then
+        private::${FUNCNAME/*:/} $ERR_EXPR_FAILED;
+    fi
+
+    declare __hub='';
+
+    while (( ${#} > 0 )); do
+        case ${1} in
+            -h | --help )
+                private::split_help 0;
+            ;;
+            -H | --hub )
+                __hub="${2:?Error: a hub <name> is needed}";
+                shift 2;
+            ;;
+            * )
+                printf 'unknown option: %s\n' $1;
+                private::${FUNCNAME/*:/} $ERR_EXPR_FAILED;
+            ;;
+        esac
+    done
+
+    : __hub="${__hub:?Error: a hub <name> is needed}";
+
+    private::debug $LINENO '--hub' "'${__hub}'";
+
+    declare SEmethod;
+    SEmethod=${FUNCNAME/*:/};
+
+    declare -x __params='"params": {
+        "HubName_str": "'"$__hub"'"
+    } ';
+
+    yq -n '{"jsonrpc": "2.0"} + {"id":"rpc_call_id"} + {"method":"'"$SEmethod"'"} + { eval(strenv(__params)) }' -Po json
+
+}
 ################################################################################
 #
 # secli function
@@ -992,6 +1038,17 @@ public::parse(){
                   (to_entries | map(select(.key | match("byte";"i"))) | map(.value) | add) as $used |
                   { hub: $hub, username: .Name_str, realname: .Realname_utf, blocked: .DenyAccess_bool, logins: .NumLogin_u32, etime: $etime, llogin: $llogin,
                   traffic: {  have: $have | tonumber, used: $used , rest: ($have | tonumber - $used) } }]' <<< "$rpc_json";
+       ;;
+       EnumSession )
+           jq \
+                '[ .result.HubName_str as $hub |
+                .result.SessionList[] |
+                ( .Username_str | sub("\\s+"; "-") ) as $username |
+                ( .CreatedTime_dt | sub("(?<time>.*)\\..*Z"; "\(.time)Z")) as $create_time |
+                ( ( now - ( $create_time | fromdate )) | floor ) as $uptime |
+                { username: $username, client_ip: .ClientIP_ip, session_id: .Name_str, hostname: .Hostname_str, max_tcp: .MaxNumTcp_u32, uptime: $uptime } ] |
+                [ to_entries | .[] | .value.index=.key+1 | .value ]' \
+                <<< "$rpc_json";
        ;;
        * )
             printf 'unknown option: %s\n' $__method;
@@ -1157,7 +1214,7 @@ private::main(){
     fi
 
     case ${1} in
-        config | apply | parse | reset | Test | GetServerInfo | GetServerStatus | CreateListener | EnumListener | DeleteListener | EnableListener | CreateUser | SetUser | GetUser | DeleteUser | EnumUser )
+        config | apply | parse | reset | Test | GetServerInfo | GetServerStatus | CreateListener | EnumListener | DeleteListener | EnableListener | CreateUser | SetUser | GetUser | DeleteUser | EnumUser | EnumSession )
             private::debug $LINENO 'command:' "'${1}'";
             private::debug $LINENO 'command-options:' "'${@:2}'";
             public::${1} "${@:2}";
