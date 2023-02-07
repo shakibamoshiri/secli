@@ -1039,6 +1039,13 @@ public::parse(){
                   { hub: $hub, username: .Name_str, realname: .Realname_utf, blocked: .DenyAccess_bool, logins: .NumLogin_u32, etime: $etime, llogin: $llogin,
                   traffic: {  have: $have | tonumber, used: $used , rest: ($have | tonumber - $used) } }]' <<< "$rpc_json";
        ;;
+       EnumUserReadable )
+            jq -r \
+                '.[] | .username + " " + .realname + " " + (.blocked | tostring) + " " + (.logins | tostring)
+                + " " + .llogin + " " + (.traffic.have | tostring) + " " + (.traffic.used | tostring) + " " + (.traffic.rest | tostring)' \
+                <<< "$rpc_json";
+
+       ;;
        EnumSession )
            jq \
                 '[ .result.HubName_str as $hub |
@@ -1070,6 +1077,60 @@ public::reset(){
     fi
 
     jq <<< "$rpc_json" | yq '.result.*Bytes_u64=0, .result.*Count_u64=0' -Po json
+}
+
+public::user(){
+    private::user(){
+        printf "${FUNCNAME/*:/}\n\n";
+        printf "%-${HELP_OFFSET}s %s\n" "-h  | --help" "show this help";
+        printf "%-${HELP_OFFSET}s %s\n" "-e  | --enum" "enumerate users of a hub";
+
+        exit ${1:-1};
+    }
+
+    if (( ${#} == 0 )); then
+        private::${FUNCNAME/*:/} $ERR_EXPR_FAILED;
+    fi
+
+    declare __se_admin_file='admin.yaml';
+    declare __se_server='';
+    declare __se_hub='';
+
+    while (( ${#} > 0 )); do
+        case ${1} in
+            -h | --help )
+                private::${FUNCNAME/*:/} 0;
+            ;;
+            -e | --enum )
+                __se_server="${2:?Error: a <server> is needed}";
+                __se_hub="${3:?Error: a <hub> is needed}";
+                shift 3;
+            ;;
+            * )
+                printf 'unknown option: %s\n' $1;
+                private::${FUNCNAME/*:/} $ERR_EXPR_FAILED;
+            ;;
+        esac
+    done
+
+    if ! [[ -f $__se_admin_file ]]; then
+        printf "SE server admin file: '%s' not found\n" $__se_admin_file;
+        exit $ERR_EXPR_FAILED;
+    fi
+
+    : __se_server="${__se_server:?Error: __se_server has not been set}";
+    : __se_hub="${__se_hub:?Error: __se_hub has not been set}";
+
+    private::debug $LINENO '__se_admin_file:' "'${__se_admin_file}'";
+    private::debug $LINENO '__se_server:' "'${__se_server}'";
+    private::debug $LINENO '__se_hub:' "'${__se_hub}'";
+
+    {
+        printf '%s %s %s %s %s %s %s %s\n' username realname blocked logins last-login have used rest;
+
+        secli EnumUser --hub $__se_hub | secli config -f $__se_admin_file -t $__se_server | secli apply | \
+            secli parse -m EnumUser | secli parse -m EnumUserReadable;
+    } | column -t
 }
 
 ################################################################################
@@ -1138,6 +1199,7 @@ private::main_help(){
 
     printf "\nsecli commands:\n";
     printf "%-${HELP_OFFSET}s %s\n" 'help' 'show help menu';
+    printf "%-${HELP_OFFSET}s %s\n" 'user' 'a user functions';
     printf "%-${HELP_OFFSET}s %s\n" 'config' 'read SE server admin yaml file';
     printf "%-${HELP_OFFSET}s %s\n" 'apply' 'send RPC-JSON to SE server';
     printf "%-${HELP_OFFSET}s %s\n" 'parse' 'parse SE server response';
@@ -1214,7 +1276,7 @@ private::main(){
     fi
 
     case ${1} in
-        config | apply | parse | reset | Test | GetServerInfo | GetServerStatus | CreateListener | EnumListener | DeleteListener | EnableListener | CreateUser | SetUser | GetUser | DeleteUser | EnumUser | EnumSession )
+        config | apply | parse | reset | user | Test | GetServerInfo | GetServerStatus | CreateListener | EnumListener | DeleteListener | EnableListener | CreateUser | SetUser | GetUser | DeleteUser | EnumUser | EnumSession )
             private::debug $LINENO 'command:' "'${1}'";
             private::debug $LINENO 'command-options:' "'${@:2}'";
             public::${1} "${@:2}";
