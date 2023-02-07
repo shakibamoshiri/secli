@@ -1084,6 +1084,7 @@ public::user(){
         printf "${FUNCNAME/*:/}\n\n";
         printf "%-${HELP_OFFSET}s %s\n" "-h  | --help" "show this help";
         printf "%-${HELP_OFFSET}s %s\n" "-e  | --enum" "enumerate users of a hub";
+        printf "%-${HELP_OFFSET}s %s\n" "-g  | --get" "get single a user info";
 
         exit ${1:-1};
     }
@@ -1096,6 +1097,17 @@ public::user(){
     declare __se_server='';
     declare __se_hub='';
 
+    private::enum(){
+        {
+            printf '%s %s %s %s %s %s %s %s\n' username realname blocked logins last-login have used rest;
+
+            secli EnumUser --hub $__se_hub | secli config -f $__se_admin_file -t $__se_server | secli apply | \
+                secli parse -m EnumUser | secli parse -m EnumUserReadable;
+        } | column -t;
+
+        exit 0;
+    }
+
     while (( ${#} > 0 )); do
         case ${1} in
             -h | --help )
@@ -1104,7 +1116,7 @@ public::user(){
             -e | --enum )
                 __se_server="${2:?Error: a <server> is needed}";
                 __se_hub="${3:?Error: a <hub> is needed}";
-                shift 3;
+                private::enum;
             ;;
             * )
                 printf 'unknown option: %s\n' $1;
@@ -1125,12 +1137,12 @@ public::user(){
     private::debug $LINENO '__se_server:' "'${__se_server}'";
     private::debug $LINENO '__se_hub:' "'${__se_hub}'";
 
-    {
-        printf '%s %s %s %s %s %s %s %s\n' username realname blocked logins last-login have used rest;
+    #{
+    #    printf '%s %s %s %s %s %s %s %s\n' username realname blocked logins last-login have used rest;
 
-        secli EnumUser --hub $__se_hub | secli config -f $__se_admin_file -t $__se_server | secli apply | \
-            secli parse -m EnumUser | secli parse -m EnumUserReadable;
-    } | column -t
+    #    secli EnumUser --hub $__se_hub | secli config -f $__se_admin_file -t $__se_server | secli apply | \
+    #        secli parse -m EnumUser | secli parse -m EnumUserReadable;
+    #} | column -t
 }
 
 ################################################################################
