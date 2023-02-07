@@ -963,15 +963,18 @@ public::parse(){
     private::parse(){
         printf "${FUNCNAME/*:/}\n\n";
         printf "%-${HELP_OFFSET}s %s\n" "-h  | --help" "show this help";
-        printf "%-${HELP_OFFSET}s %s\n" "-m  | --method" "a valid yaml file contains admin credentials";
+        printf "%-${HELP_OFFSET}s %s\n" "-t  | --table" "print in table format";
+        printf "%-${HELP_OFFSET}s %s\n" "-m  | --method" "SE server method to parse:";
         printf "%-${HELP_OFFSET}s %s\n" "              " "GetServerInfo";
         printf "%-${HELP_OFFSET}s %s\n" "              " "GetServerStatus";
         printf "%-${HELP_OFFSET}s %s\n" "              " "EnumListener";
         printf "%-${HELP_OFFSET}s %s\n" "              " "CreateUser";
         printf "%-${HELP_OFFSET}s %s\n" "              " "SetUser";
         printf "%-${HELP_OFFSET}s %s\n" "              " "GetUser";
+        printf "%-${HELP_OFFSET}s %s\n" "              " "GetUserTable";
         printf "%-${HELP_OFFSET}s %s\n" "              " "DeleteUser";
         printf "%-${HELP_OFFSET}s %s\n" "              " "EnumUser";
+        printf "%-${HELP_OFFSET}s %s\n" "              " "EnumUserTable";
 
         exit ${1:-1};
     }
@@ -993,6 +996,10 @@ public::parse(){
         case ${1} in
             -h | --help )
                 private::${FUNCNAME/*:/} 0;
+            ;;
+            -t | --table )
+                __method=$(jq -r '.method' <<< "$rpc_json");
+                shift 1;
             ;;
             -m | --method )
                 __method="${2:?Error: a method <name> is needed}";
@@ -1096,14 +1103,18 @@ public::user(){
     declare __se_admin_file='admin.yaml';
     declare __se_server='';
     declare __se_hub='';
+    declare __se_hub_user='';
 
     private::enum(){
-        {
-            printf '%s %s %s %s %s %s %s %s\n' username realname blocked logins last-login have used rest;
+        secli EnumUser --hub $__se_hub | secli config -f $__se_admin_file -t $__se_server | secli apply | \
+            secli parse -m EnumUser | jq '{method: "EnumUserTable"} + {value: .}';
 
-            secli EnumUser --hub $__se_hub | secli config -f $__se_admin_file -t $__se_server | secli apply | \
-                secli parse -m EnumUser | secli parse -m EnumUserReadable;
-        } | column -t;
+        exit 0;
+    }
+
+    private::get(){
+        secli GetUser --hub $__se_hub --user $__se_hub_user | secli config -f $__se_admin_file -t $__se_server | \
+            secli apply | secli parse -m GetUser | jq '{method: "GetUserTable"} + {value: .}'
 
         exit 0;
     }
