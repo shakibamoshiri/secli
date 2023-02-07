@@ -1109,7 +1109,10 @@ public::user(){
         printf "${FUNCNAME/*:/}\n\n";
         printf "%-${HELP_OFFSET}s %s\n" "-h  | --help" "show this help";
         printf "%-${HELP_OFFSET}s %s\n" "-e  | --enum" "enumerate users of a hub";
-        printf "%-${HELP_OFFSET}s %s\n" "-g  | --get" "get single a user info";
+        printf "%-${HELP_OFFSET}s %s\n" "-g  | --get" "get a user of a hub";
+        printf "%-${HELP_OFFSET}s %s\n" "-di | --disable" "disable a user of a hub";
+        printf "%-${HELP_OFFSET}s %s\n" "-en | --enable" "enable a user of a hub";
+        printf "%-${HELP_OFFSET}s %s\n" "-D  | --delete" "delete a user from a hub";
 
         exit ${1:-1};
     }
