@@ -1017,57 +1017,75 @@ public::parse(){
 
     private::debug $LINENO '--method' "'${__method}'";
 
-    case $__method in
-       GetServerInfo | GetServerStatus | CreateUser | SetUser | DeleteUser )
-           # echo "$rpc_json" | jq | yq -Po yaml '.result  | .[] |= select(tag == "!!str") |= sub("\s+", "-")' | column -t
-           jq '.result' <<< "$rpc_json";
-       ;;
-       EnumListener )
-           jq '[ .result.ListenerList[] | { "port": .Ports_u32, "active": .Enables_bool, "error": .Errors_bool } ]' <<< "$rpc_json";
-       ;;
-       GetUser )
-            jq '.result.HubName_str as $hub |
-                (.result.CreatedTime_dt | sub("(?<time>.*)\\..*Z"; "\(.time)Z")) as $ctime |
-                (.result.ExpireTime_dt | sub("(?<time>.*)\\..*Z"; "\(.time)Z")) as $etime |
-                .result |
-                .Note_utf as $have |
-                (to_entries | map(select(.key | match("byte";"i"))) | map(.value) | add) as $used |
-                { hub: $hub, username: .Name_str, realname: .Realname_utf, access: ."policy:Access_bool",
-                nlogin: .NumLogin_u32, mlogin: ."policy:MultiLogins_u32", policy: .UsePolicy_bool, group: .GroupName_str,  ctime: $ctime, etime: $etime,
-                traffic: {  have: $have | tonumber, used: $used , rest: ($have | tonumber - $used) } }' <<< "$rpc_json";
-       ;;
-       EnumUser )
-           jq '[ .result.HubName_str as $hub |
-                  .result.UserList [] |
-                  (.Expires_dt | sub("(?<time>.*)\\..*Z"; "\(.time)Z")) as $etime |
-                  (.LastLoginTime_dt | sub("(?<time>.*)\\..*Z"; "\(.time)Z")) as $llogin |
-                  .Note_utf as $have |
-                  (to_entries | map(select(.key | match("byte";"i"))) | map(.value) | add) as $used |
-                  { hub: $hub, username: .Name_str, realname: .Realname_utf, blocked: .DenyAccess_bool, logins: .NumLogin_u32, etime: $etime, llogin: $llogin,
-                  traffic: {  have: $have | tonumber, used: $used , rest: ($have | tonumber - $used) } }]' <<< "$rpc_json";
-       ;;
-       EnumUserReadable )
-            jq -r \
-                '.[] | .username + " " + .realname + " " + (.blocked | tostring) + " " + (.logins | tostring)
-                + " " + .llogin + " " + (.traffic.have | tostring) + " " + (.traffic.used | tostring) + " " + (.traffic.rest | tostring)' \
-                <<< "$rpc_json";
+    if grep Table$ <<< $__method > /dev/null 2>&1 ; then
+        if [[ -n $__method ]]; then
+            rpc_json=$(jq '.value' <<< "$rpc_json");
+        fi
+    fi
 
-       ;;
-       EnumSession )
-           jq \
-                '[ .result.HubName_str as $hub |
-                .result.SessionList[] |
-                ( .Username_str | sub("\\s+"; "-") ) as $username |
-                ( .CreatedTime_dt | sub("(?<time>.*)\\..*Z"; "\(.time)Z")) as $create_time |
-                ( ( now - ( $create_time | fromdate )) | floor ) as $uptime |
-                { username: $username, client_ip: .ClientIP_ip, session_id: .Name_str, hostname: .Hostname_str, max_tcp: .MaxNumTcp_u32, uptime: $uptime } ] |
-                [ to_entries | .[] | .value.index=.key+1 | .value ]' \
-                <<< "$rpc_json";
-       ;;
-       * )
-            printf 'unknown option: %s\n' $__method;
-            private::${FUNCNAME/*:/} $ERR_EXPR_FAILED;
-       ;;
+    case $__method in
+        GetServerInfo | GetServerStatus | CreateUser | SetUser | DeleteUser )
+            # echo "$rpc_json" | jq | yq -Po yaml '.result  | .[] |= select(tag == "!!str") |= sub("\s+", "-")' | column -t
+            jq '.result' <<< "$rpc_json";
+        ;;
+        EnumListener )
+            jq '[ .result.ListenerList[] | { "port": .Ports_u32, "active": .Enables_bool, "error": .Errors_bool } ]' <<< "$rpc_json";
+        ;;
+        GetUser )
+             jq '.result.HubName_str as $hub |
+                 (.result.CreatedTime_dt | sub("(?<time>.*)\\..*Z"; "\(.time)Z")) as $ctime |
+                 (.result.ExpireTime_dt | sub("(?<time>.*)\\..*Z"; "\(.time)Z")) as $etime |
+                 .result |
+                 .Note_utf as $have |
+                 (to_entries | map(select(.key | match("byte";"i"))) | map(.value) | add) as $used |
+                 { hub: $hub, username: .Name_str, realname: .Realname_utf, access: ."policy:Access_bool",
+                 nlogin: .NumLogin_u32, mlogin: ."policy:MultiLogins_u32", policy: .UsePolicy_bool, group: .GroupName_str,  ctime: $ctime, etime: $etime,
+                 traffic: {  have: $have | tonumber, used: $used , rest: ($have | tonumber - $used) } }' <<< "$rpc_json";
+        ;;
+        EnumUser )
+            jq '[ .result.HubName_str as $hub |
+                   .result.UserList [] |
+                   (.Expires_dt | sub("(?<time>.*)\\..*Z"; "\(.time)Z")) as $etime |
+                   (.LastLoginTime_dt | sub("(?<time>.*)\\..*Z"; "\(.time)Z")) as $llogin |
+                   .Note_utf as $have |
+                   (to_entries | map(select(.key | match("byte";"i"))) | map(.value) | add) as $used |
+                   { hub: $hub, username: .Name_str, realname: .Realname_utf, blocked: .DenyAccess_bool, logins: .NumLogin_u32, etime: $etime, llogin: $llogin,
+                   traffic: {  have: $have | tonumber, used: $used , rest: ($have | tonumber - $used) } }]' <<< "$rpc_json";
+        ;;
+        EnumUserTable )
+            {
+                 printf '%s %s %s %s %s %s %s %s\n' username realname blocked logins last-login have used rest;
+                 jq -r \
+                     '.[] | .username + " " + .realname + " " + (.blocked | tostring) + " " + (.logins | tostring)
+                     + " " + .llogin + " " + (.traffic.have | tostring) + " " + (.traffic.used | tostring) + " " + (.traffic.rest | tostring)' \
+                     <<< "$rpc_json";
+            } | column -t;
+        ;;
+        GetUserTable )
+             {
+                 printf '%s %s %s %s %s %s %s %s %s %s %s %s %s\n' hub username realname access nlogin mlogin policy group ctime etime have used rest;
+                 jq -r \
+                     '.hub + " " + .username + " " + .realname + " " + (.access | tostring) + " " + (.nlogin | tostring) + " " + (.mlogin | tostring)
+                     + " " + (.policy | tostring) + " " + (if (.group=="") then  "-" else .group end) +  " " +  (.ctime) + " " + (.etime) + " " + (.traffic.have | tostring) + " " + (.traffic.used | tostring) + " " + (.traffic.rest | tostring)' \
+                     <<< "$rpc_json";
+             } | column -t;
+        ;;
+        EnumSession )
+            jq \
+                 '[ .result.HubName_str as $hub |
+                 .result.SessionList[] |
+                 ( .Username_str | sub("\\s+"; "-") ) as $username |
+                 ( .CreatedTime_dt | sub("(?<time>.*)\\..*Z"; "\(.time)Z")) as $create_time |
+                 ( ( now - ( $create_time | fromdate )) | floor ) as $uptime |
+                 { username: $username, client_ip: .ClientIP_ip, session_id: .Name_str, hostname: .Hostname_str, max_tcp: .MaxNumTcp_u32, uptime: $uptime } ] |
+                 [ to_entries | .[] | .value.index=.key+1 | .value ]' \
+                 <<< "$rpc_json";
+        ;;
+        * )
+             printf 'unknown option: %s\n' $__method;
+             printf 'please check: parse --help\n';
+             exit $ERR_EXPR_FAILED;
+        ;;
    esac
 }
 
