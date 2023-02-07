@@ -1147,6 +1147,12 @@ public::user(){
                 __se_hub="${3:?Error: a <hub> is needed}";
                 private::enum;
             ;;
+            -g | --get )
+                __se_server="${2:?Error: a <server> is needed}";
+                __se_hub="${3:?Error: a <hub> is needed}";
+                __se_hub_user="${4:?Error: a <username> is needed}";
+                private::get;
+            ;;
             * )
                 printf 'unknown option: %s\n' $1;
                 private::${FUNCNAME/*:/} $ERR_EXPR_FAILED;
@@ -1170,7 +1176,7 @@ public::user(){
     #    printf '%s %s %s %s %s %s %s %s\n' username realname blocked logins last-login have used rest;
 
     #    secli EnumUser --hub $__se_hub | secli config -f $__se_admin_file -t $__se_server | secli apply | \
-    #        secli parse -m EnumUser | secli parse -m EnumUserReadable;
+    #        secli parse -m EnumUser | secli parse -m EnumUserTable;
     #} | column -t
 }
 
