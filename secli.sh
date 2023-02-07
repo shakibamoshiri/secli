@@ -991,6 +991,7 @@ public::parse(){
     fi
 
     declare __method='';
+    declare __yaml_flag='false';
 
     while (( ${#} > 0 )); do
         case ${1} in
@@ -999,6 +1000,10 @@ public::parse(){
             ;;
             -t | --table )
                 __method=$(jq -r '.method' <<< "$rpc_json");
+                shift 1;
+            ;;
+            -y | --yaml )
+                __yaml_flag='true';
                 shift 1;
             ;;
             -m | --method )
@@ -1013,7 +1018,6 @@ public::parse(){
         esac
     done
 
-    : __method="${__method:?Error: a method <name> is needed}";
 
     private::debug $LINENO '--method' "'${__method}'";
 
@@ -1023,6 +1027,12 @@ public::parse(){
         fi
     fi
 
+    if [[ $__yaml_flag == 'true' ]]; then
+        yq -Po yaml  '.' <<< "$rpc_json";
+        exit 0;
+    fi
+
+    : __method="${__method:?Error: a method <name> is needed}";
     case $__method in
         GetServerInfo | GetServerStatus | CreateUser | SetUser | DeleteUser )
             # echo "$rpc_json" | jq | yq -Po yaml '.result  | .[] |= select(tag == "!!str") |= sub("\s+", "-")' | column -t
