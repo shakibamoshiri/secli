@@ -449,6 +449,7 @@ public::CreateUser(){
     declare __policy_fix_pass='true';
     declare __policy_multi_login=1;
     declare -i __policy_max_download=0;
+    declare -ir __one_gig=1073741824;
 
     # policy:MaxConnection_u32
     declare __policy_max_tcp_con=32;
@@ -526,7 +527,7 @@ public::CreateUser(){
     private::debug $LINENO '--user' "'${__user_name}'";
     private::debug $LINENO '--pass' "'${__user_pass}'";
     private::debug $LINENO '--real' "'${__real_name}'";
-    private::debug $LINENO '--note' "'$((${__user_note} * 1073741824))'";
+    private::debug $LINENO '--note' "'$((${__user_note} * $__one_gig))'";
     private::debug $LINENO '--p-rule' "'${__policy_rule}'";
     private::debug $LINENO '--p-access' "'${__policy_access}'";
     private::debug $LINENO '--p-fix-pass' "'${__policy_fix_pass}'";
