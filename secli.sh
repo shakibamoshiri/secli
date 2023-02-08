@@ -1166,11 +1166,13 @@ public::user(){
         exit 0;
     }
 
-    private::disable(){
+    private::user_access(){
+        declare -r access_bool="${1?:Error access_book has not been set}";
+
         secli GetUser --hub $__se_hub --user $__se_hub_user | \
             secli config -f $__se_admin_file -t $__se_server | \
             secli apply | \
-            jq '.result."policy:Access_bool"=false' | \
+            jq '.result."policy:Access_bool"='$access_bool'' | \
             secli SetUser | \
             secli config -f $__se_admin_file -t $__se_server | \
             secli apply | \
@@ -1199,7 +1201,13 @@ public::user(){
                 __se_server="${2:?Error: a <server> is needed}";
                 __se_hub="${3:?Error: a <hub> is needed}";
                 __se_hub_user="${4:?Error: a <username> is needed}";
-                private::disable;
+                private::user_access false;
+            ;;
+            -en | --enable )
+                __se_server="${2:?Error: a <server> is needed}";
+                __se_hub="${3:?Error: a <hub> is needed}";
+                __se_hub_user="${4:?Error: a <username> is needed}";
+                private::user_access true;
             ;;
             * )
                 printf 'unknown option: %s\n' $1;
