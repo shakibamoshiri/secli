@@ -1051,7 +1051,7 @@ public::parse(){
 
     : __method="${__method:?Error: a method <name> is needed}";
     case $__method in
-        GetServerInfo | GetServerStatus | CreateUser | SetUser | DeleteUser )
+        GetServerInfo | GetServerStatus | CreateUser | DeleteUser )
             jq '{ method: "'$__method'" } + { parsed: true } + { result: .result }' <<< "$rpc_json";
         ;;
         EnumListener )
@@ -1062,7 +1062,7 @@ public::parse(){
             jq -r  '. as $root | $root.result[0] | to_entries | map(.key) | join(" ") as $H | 
                     $H, ($root.result[] | to_entries | map(.value|tostring) | join(" "))' <<< "$rpc_json" | column -t;
         ;;
-        GetUser )
+        GetUser | SetUser )
              jq '.result.HubName_str as $hub |
                  (.result.CreatedTime_dt | sub("(?<time>.*)\\..*Z"; "\(.time)Z")) as $ctime |
                  (.result.ExpireTime_dt | sub("(?<time>.*)\\..*Z"; "\(.time)Z")) as $etime |
@@ -1166,6 +1166,19 @@ public::user(){
         exit 0;
     }
 
+    private::disable(){
+        secli GetUser --hub $__se_hub --user $__se_hub_user | \
+            secli config -f $__se_admin_file -t $__se_server | \
+            secli apply | \
+            jq '.result."policy:Access_bool"=false' | \
+            secli SetUser | \
+            secli config -f $__se_admin_file -t $__se_server | \
+            secli apply | \
+            secli parse
+
+        exit 0;
+    }
+
     while (( ${#} > 0 )); do
         case ${1} in
             -h | --help )
@@ -1181,6 +1194,12 @@ public::user(){
                 __se_hub="${3:?Error: a <hub> is needed}";
                 __se_hub_user="${4:?Error: a <username> is needed}";
                 private::get;
+            ;;
+            -di | --disable )
+                __se_server="${2:?Error: a <server> is needed}";
+                __se_hub="${3:?Error: a <hub> is needed}";
+                __se_hub_user="${4:?Error: a <username> is needed}";
+                private::disable;
             ;;
             * )
                 printf 'unknown option: %s\n' $1;
