@@ -526,7 +526,7 @@ public::CreateUser(){
     private::debug $LINENO '--user' "'${__user_name}'";
     private::debug $LINENO '--pass' "'${__user_pass}'";
     private::debug $LINENO '--real' "'${__real_name}'";
-    private::debug $LINENO '--note' "'$((${__user_note} * 1000000000))'";
+    private::debug $LINENO '--note' "'$((${__user_note} * 1073741824))'";
     private::debug $LINENO '--p-rule' "'${__policy_rule}'";
     private::debug $LINENO '--p-access' "'${__policy_access}'";
     private::debug $LINENO '--p-fix-pass' "'${__policy_fix_pass}'";
