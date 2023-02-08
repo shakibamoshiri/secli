@@ -195,11 +195,13 @@ public::apply(){
     private::debug $LINENO '--format' "'${__format}'";
 
     declare -A SEserver=([addr]= [port]= [pass]=);
-    declare payload='';
+    declare rpc_json_method='';
     SEserver[addr]=$(yq '.se_cred.address' <<< "$se_data");
     SEserver[port]=$(yq '.se_cred.port' <<< "$se_data");
     SEserver[pass]=$(yq '.se_cred.password' <<< "$se_data");
-    curl_data=$(yq '.rpc_json' <<< "$se_data");
+
+    curl_data=$(jq '.rpc_json' <<< "$se_data");
+    rpc_json_method=$(jq '.rpc_json.method' <<< "$se_data");
 
     case ${__format} in
         json )
@@ -209,7 +211,7 @@ public::apply(){
             curl -sL --insecure  -X POST -H "X-VPNADMIN-PASSWORD: ${SEserver[pass]}"  https://${SEserver[addr]}:${SEserver[port]}/api/ -d "${curl_data}" | jq '.' | yq -Po yaml
         ;;
         default )
-            curl -sL --insecure  -X POST -H "X-VPNADMIN-PASSWORD: ${SEserver[pass]}"  https://${SEserver[addr]}:${SEserver[port]}/api/ -d "${curl_data}";
+            curl -sL --insecure  -X POST -H "X-VPNADMIN-PASSWORD: ${SEserver[pass]}"  https://${SEserver[addr]}:${SEserver[port]}/api/ -d "${curl_data}" | jq "{method: $rpc_json_method} + .";
         ;;
         * )
             printf "'%s' output format not found. see help\n" $1;
@@ -964,6 +966,7 @@ public::parse(){
         printf "${FUNCNAME/*:/}\n\n";
         printf "%-${HELP_OFFSET}s %s\n" "-h  | --help" "show this help";
         printf "%-${HELP_OFFSET}s %s\n" "-t  | --table" "print in table format";
+        printf "%-${HELP_OFFSET}s %s\n" "-y  | --yaml" "print in table format";
         printf "%-${HELP_OFFSET}s %s\n" "-m  | --method" "SE server method to parse:";
         printf "%-${HELP_OFFSET}s %s\n" "              " "GetServerInfo";
         printf "%-${HELP_OFFSET}s %s\n" "              " "GetServerStatus";
@@ -988,10 +991,23 @@ public::parse(){
 
     if [[ -p /dev/stdin ]]; then
         rpc_json=$(< /dev/stdin);
+
+        if (( ${#} == 0 )); then
+            declare __json_already_parsed='';
+            __json_already_parsed=$(jq -r '.parsed' <<< "$rpc_json");
+
+            if [[ $__json_already_parsed == 'true' ]]; then
+                jq '.result' <<< "$rpc_json";
+                exit 0;
+            fi
+        fi
     fi
 
     declare __method='';
+    __method=$(jq -r '.method' <<< "$rpc_json");
+
     declare __yaml_flag='false';
+    declare __json_flag='false';
 
     while (( ${#} > 0 )); do
         case ${1} in
@@ -999,7 +1015,7 @@ public::parse(){
                 private::${FUNCNAME/*:/} 0;
             ;;
             -t | --table )
-                __method=$(jq -r '.method' <<< "$rpc_json");
+                __method=$(jq -r '.method + "Table"' <<< "$rpc_json");
                 shift 1;
             ;;
             -y | --yaml )
@@ -1021,25 +1037,30 @@ public::parse(){
 
     private::debug $LINENO '--method' "'${__method}'";
 
-    if grep Table$ <<< $__method > /dev/null 2>&1 ; then
-        if [[ -n $__method ]]; then
-            rpc_json=$(jq '.value' <<< "$rpc_json");
-        fi
-    fi
+#    if grep Table$ <<< $__method > /dev/null 2>&1 ; then
+#        if [[ -n $__method ]]; then
+#            rpc_json=$(jq '.result' <<< "$rpc_json");
+#        fi
+#    fi
+
 
     if [[ $__yaml_flag == 'true' ]]; then
-        yq -Po yaml  '.' <<< "$rpc_json";
+        yq -Po yaml  '.result' <<< "$rpc_json";
         exit 0;
     fi
 
     : __method="${__method:?Error: a method <name> is needed}";
     case $__method in
         GetServerInfo | GetServerStatus | CreateUser | SetUser | DeleteUser )
-            # echo "$rpc_json" | jq | yq -Po yaml '.result  | .[] |= select(tag == "!!str") |= sub("\s+", "-")' | column -t
-            jq '.result' <<< "$rpc_json";
+            jq '{ method: "'$__method'" } + { parsed: true } + { result: .result }' <<< "$rpc_json";
         ;;
         EnumListener )
-            jq '[ .result.ListenerList[] | { "port": .Ports_u32, "active": .Enables_bool, "error": .Errors_bool } ]' <<< "$rpc_json";
+            jq '[ .result.ListenerList[] | { "port": .Ports_u32, "active": .Enables_bool, "error": .Errors_bool } ] |
+                { method: "'$__method'" } + { parsed: true } + { result: . }' <<< "$rpc_json";
+        ;;
+        EnumListenerTable )
+            jq -r  '. as $root | $root.result[0] | to_entries | map(.key) | join(" ") as $H | 
+                    $H, ($root.result[] | to_entries | map(.value|tostring) | join(" "))' <<< "$rpc_json" | column -t;
         ;;
         GetUser )
              jq '.result.HubName_str as $hub |
@@ -1050,53 +1071,50 @@ public::parse(){
                  (to_entries | map(select(.key | match("byte";"i"))) | map(.value) | add) as $used |
                  { hub: $hub, username: .Name_str, realname: .Realname_utf, access: ."policy:Access_bool",
                  nlogin: .NumLogin_u32, mlogin: ."policy:MultiLogins_u32", policy: .UsePolicy_bool, group: .GroupName_str,  ctime: $ctime, etime: $etime,
-                 traffic: {  have: $have | tonumber, used: $used , rest: ($have | tonumber - $used) } }' <<< "$rpc_json";
+                 traffic: {  have: $have | tonumber, used: $used , rest: ($have | tonumber - $used) } } |
+                 { method: "'$__method'" } + { parsed: true } + { result: . }' <<< "$rpc_json";
         ;;
         EnumUser )
-            jq '[ .result.HubName_str as $hub |
-                   .result.UserList [] |
-                   (.Expires_dt | sub("(?<time>.*)\\..*Z"; "\(.time)Z")) as $etime |
-                   (.LastLoginTime_dt | sub("(?<time>.*)\\..*Z"; "\(.time)Z")) as $llogin |
-                   .Note_utf as $have |
-                   (to_entries | map(select(.key | match("byte";"i"))) | map(.value) | add) as $used |
-                   { hub: $hub, username: .Name_str, realname: .Realname_utf, blocked: .DenyAccess_bool, logins: .NumLogin_u32, etime: $etime, llogin: $llogin,
-                   traffic: {  have: $have | tonumber, used: $used , rest: ($have | tonumber - $used) } }]' <<< "$rpc_json";
+            jq '[.result.HubName_str as $hub |
+                .result.UserList [] |
+                (.Expires_dt | sub("(?<time>.*)\\..*Z"; "\(.time)Z")) as $etime |
+                (.LastLoginTime_dt | sub("(?<time>.*)\\..*Z"; "\(.time)Z")) as $llogin |
+                .Note_utf as $have |
+                (to_entries | map(select(.key | match("byte";"i"))) | map(.value) | add) as $used |
+                { hub: $hub, username: .Name_str, realname: .Realname_utf, blocked: .DenyAccess_bool, logins: .NumLogin_u32, etime: $etime, llogin: $llogin,
+                traffic: {  have: $have | tonumber, used: $used , rest: ($have | tonumber - $used) } }] | 
+                { method: "'$__method'" } + { parsed: true } + { result: . }' <<< "$rpc_json";
         ;;
         EnumUserTable )
-            {
-                 printf '%s %s %s %s %s %s %s %s\n' username realname blocked logins last-login have used rest;
-                 jq -r \
-                     '.[] | .username + " " + .realname + " " + (.blocked | tostring) + " " + (.logins | tostring)
-                     + " " + .llogin + " " + (.traffic.have | tostring) + " " + (.traffic.used | tostring) + " " + (.traffic.rest | tostring)' \
-                     <<< "$rpc_json";
-            } | column -t;
+            jq -r  '. as $root | $root.result[0] | .traffic=null | to_entries | map(.key) | join(" ") as $H | 
+                    $H, ($root.result[] | (.traffic | to_entries | map(.value) | map(tostring) | join(" ")) as $traffic | 
+                    .traffic=$traffic  | to_entries | map(.value|tostring) | join(" "))' <<< "$rpc_json" | column -t;
         ;;
         GetUserTable )
-             {
-                 printf '%s %s %s %s %s %s %s %s %s %s %s %s %s\n' hub username realname access nlogin mlogin policy group ctime etime have used rest;
-                 jq -r \
-                     '.hub + " " + .username + " " + .realname + " " + (.access | tostring) + " " + (.nlogin | tostring) + " " + (.mlogin | tostring)
-                     + " " + (.policy | tostring) + " " + (if (.group=="") then  "-" else .group end) +  " " +  (.ctime) + " " + (.etime) + " " + (.traffic.have | tostring) + " " + (.traffic.used | tostring) + " " + (.traffic.rest | tostring)' \
-                     <<< "$rpc_json";
-             } | column -t;
+            jq -r  '. as $root | $root.result | .traffic=null | to_entries | map(.key) | join(" ") as $H | 
+                    $H, ($root.result | (.traffic | to_entries | map(.value) | map(tostring) | join(" ")) as $traffic | 
+                    .traffic=$traffic  | to_entries | map(.value|tostring|if .=="" then "-" else . end) | join(" "))' <<< "$rpc_json" | column -t;
         ;;
         EnumSession )
-            jq \
-                 '[ .result.HubName_str as $hub |
-                 .result.SessionList[] |
-                 ( .Username_str | sub("\\s+"; "-") ) as $username |
-                 ( .CreatedTime_dt | sub("(?<time>.*)\\..*Z"; "\(.time)Z")) as $create_time |
-                 ( ( now - ( $create_time | fromdate )) | floor ) as $uptime |
-                 { username: $username, client_ip: .ClientIP_ip, session_id: .Name_str, hostname: .Hostname_str, max_tcp: .MaxNumTcp_u32, uptime: $uptime } ] |
-                 [ to_entries | .[] | .value.index=.key+1 | .value ]' \
-                 <<< "$rpc_json";
+            jq '[ .result.HubName_str as $hub |
+                .result.SessionList[] |
+                ( .Username_str | sub("\\s+"; "-") ) as $username |
+                ( .CreatedTime_dt | sub("(?<time>.*)\\..*Z"; "\(.time)Z")) as $create_time |
+                ( ( now - ( $create_time | fromdate )) | floor ) as $uptime |
+                { username: $username, client_ip: .ClientIP_ip, session_id: .Name_str, hostname: (if (.Hostname_str != "") then .Hostname_str else "-" end), max_tcp: .MaxNumTcp_u32, uptime: $uptime } ] |
+                [ to_entries | .[] | .value.index=.key+1 | .value ] | 
+                { method: "'$__method'" } + { parsed: true } + { result: . }' <<< "$rpc_json";
+        ;;
+        EnumSessionTable )
+            jq -r  '. as $root | $root.result[0] | to_entries | map(.key) | join(" ") as $H | 
+                    $H, ($root.result[] | to_entries | map(.value|tostring) | join(" "))' <<< "$rpc_json" | column -t;
         ;;
         * )
              printf 'unknown option: %s\n' $__method;
              printf 'please check: parse --help\n';
              exit $ERR_EXPR_FAILED;
         ;;
-   esac
+    esac
 }
 
 public::reset(){
@@ -1137,15 +1155,13 @@ public::user(){
     declare __se_hub_user='';
 
     private::enum(){
-        secli EnumUser --hub $__se_hub | secli config -f $__se_admin_file -t $__se_server | secli apply | \
-            secli parse -m EnumUser | jq '{method: "EnumUserTable"} + {value: .}';
+        secli EnumUser --hub $__se_hub | secli config -f $__se_admin_file -t $__se_server | secli apply | secli parse;
 
         exit 0;
     }
 
     private::get(){
-        secli GetUser --hub $__se_hub --user $__se_hub_user | secli config -f $__se_admin_file -t $__se_server | \
-            secli apply | secli parse -m GetUser | jq '{method: "GetUserTable"} + {value: .}'
+        secli GetUser --hub $__se_hub --user $__se_hub_user | secli config -f $__se_admin_file -t $__se_server | secli apply | secli parse;
 
         exit 0;
     }
@@ -1184,13 +1200,6 @@ public::user(){
     private::debug $LINENO '__se_admin_file:' "'${__se_admin_file}'";
     private::debug $LINENO '__se_server:' "'${__se_server}'";
     private::debug $LINENO '__se_hub:' "'${__se_hub}'";
-
-    #{
-    #    printf '%s %s %s %s %s %s %s %s\n' username realname blocked logins last-login have used rest;
-
-    #    secli EnumUser --hub $__se_hub | secli config -f $__se_admin_file -t $__se_server | secli apply | \
-    #        secli parse -m EnumUser | secli parse -m EnumUserTable;
-    #} | column -t
 }
 
 ################################################################################
