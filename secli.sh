@@ -1140,6 +1140,7 @@ public::user(){
         printf "%-${HELP_OFFSET}s %s\n" "-g  | --get" "get a user of a hub";
         printf "%-${HELP_OFFSET}s %s\n" "-di | --disable" "disable a user of a hub";
         printf "%-${HELP_OFFSET}s %s\n" "-en | --enable" "enable a user of a hub";
+        printf "%-${HELP_OFFSET}s %s\n" "-A  | --add" "add a user to a hub";
         printf "%-${HELP_OFFSET}s %s\n" "-D  | --delete" "delete a user from a hub";
 
         exit ${1:-1};
@@ -1153,6 +1154,12 @@ public::user(){
     declare __se_server='';
     declare __se_hub='';
     declare __se_hub_user='';
+
+    set +o pipefail;
+    declare __se_new_user="$(tr -dc [:lower:][:digit:] < /dev/urandom | head -c 6; echo)";
+    declare __se_new_pass="$(tr -dc [:lower:][:digit:] < /dev/urandom | head -c 12; echo)";
+    set -o pipefail;
+    declare __se_new_realname="user_${__se_new_user}";
 
     private::enum(){
         secli EnumUser --hub $__se_hub | \
@@ -1187,6 +1194,13 @@ public::user(){
         exit 0;
     }
 
+    private::add(){
+        secli CreateUser --hub $__se_hub --user $__se_new_user --pass $__se_new_pass --real $__se_new_realname --note 1 | \
+            secli config -f $__se_admin_file -t $__se_server | \
+            secli apply
+        exit 0;
+    }
+
     while (( ${#} > 0 )); do
         case ${1} in
             -h | --help )
@@ -1214,6 +1228,15 @@ public::user(){
                 __se_hub="${3:?Error: a <hub> is needed}";
                 __se_hub_user="${4:?Error: a <username> is needed}";
                 private::user_access true;
+            ;;
+            -A | --add )
+                __se_server="${2:?Error: a <server> is needed}";
+                __se_hub="${3:?Error: a <hub> is needed}";
+
+                __se_new_user="${4:-$__se_new_user}";
+                __se_new_pass="${5:-$__se_new_pass}";
+                __se_new_realname="${6:-user_$__se_new_user}";
+                private::add;
             ;;
             * )
                 printf 'unknown option: %s\n' $1;
