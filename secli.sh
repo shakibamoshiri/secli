@@ -1155,13 +1155,19 @@ public::user(){
     declare __se_hub_user='';
 
     private::enum(){
-        secli EnumUser --hub $__se_hub | secli config -f $__se_admin_file -t $__se_server | secli apply | secli parse;
+        secli EnumUser --hub $__se_hub | \
+            secli config -f $__se_admin_file -t $__se_server | \
+            secli apply | \
+            secli parse;
 
         exit 0;
     }
 
     private::get(){
-        secli GetUser --hub $__se_hub --user $__se_hub_user | secli config -f $__se_admin_file -t $__se_server | secli apply | secli parse;
+        secli GetUser --hub $__se_hub --user $__se_hub_user | \
+        secli config -f $__se_admin_file -t $__se_server | \
+        secli apply | \
+        secli parse;
 
         exit 0;
     }
