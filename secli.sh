@@ -538,7 +538,7 @@ public::CreateUser(){
         "HubName_str": "'"${__hub}"'",
         "Name_str": "'"${__user_name}"'",
         "Realname_utf": "'"${__real_name}"'",
-        "Note_utf": "'"$((${__user_note} * 1000000000))"'",
+        "Note_utf": "'"$((${__user_note} * $__one_gig))"'",
         "ExpireTime_dt": "'"${__expire_time}"'",
         "AuthType_u32": '${__auth_type}',
         "Auth_Password_str": "'"${__user_pass}"'",
@@ -1052,7 +1052,7 @@ public::parse(){
 
     : __method="${__method:?Error: a method <name> is needed}";
     case $__method in
-        GetServerInfo | GetServerStatus | CreateUser | DeleteUser )
+        GetServerInfo | GetServerStatus | DeleteUser )
             jq '{ method: "'$__method'" } + { parsed: true } + { result: .result }' <<< "$rpc_json";
         ;;
         EnumListener )
@@ -1063,7 +1063,7 @@ public::parse(){
             jq -r  '. as $root | $root.result[0] | to_entries | map(.key) | join(" ") as $H | 
                     $H, ($root.result[] | to_entries | map(.value|tostring) | join(" "))' <<< "$rpc_json" | column -t;
         ;;
-        GetUser | SetUser )
+        GetUser | SetUser | CreateUser )
              jq '.result.HubName_str as $hub |
                  (.result.CreatedTime_dt | sub("(?<time>.*)\\..*Z"; "\(.time)Z")) as $ctime |
                  (.result.ExpireTime_dt | sub("(?<time>.*)\\..*Z"; "\(.time)Z")) as $etime |
@@ -1091,7 +1091,7 @@ public::parse(){
                     $H, ($root.result[] | (.traffic | to_entries | map(.value) | map(tostring) | join(" ")) as $traffic | 
                     .traffic=$traffic  | to_entries | map(.value|tostring) | join(" "))' <<< "$rpc_json" | column -t;
         ;;
-        GetUserTable )
+        GetUserTable | SetUserTable | CreateUserTable )
             jq -r  '. as $root | $root.result | .traffic=null | to_entries | map(.key) | join(" ") as $H | 
                     $H, ($root.result | (.traffic | to_entries | map(.value) | map(tostring) | join(" ")) as $traffic | 
                     .traffic=$traffic  | to_entries | map(.value|tostring|if .=="" then "-" else . end) | join(" "))' <<< "$rpc_json" | column -t;
@@ -1196,7 +1196,19 @@ public::user(){
     }
 
     private::add(){
+        declare se_server_address='';
+        se_server_address=$(yq ".secli.${__se_server}.address" $__se_admin_file);
+
         secli CreateUser --hub $__se_hub --user $__se_new_user --pass $__se_new_pass --real $__se_new_realname --note 1 | \
+            secli config -f $__se_admin_file -t $__se_server | \
+            secli apply | \
+            secli parse | \
+            jq '. + {credentials: {username: "'$__se_new_user'", password: "'$__se_new_pass'", server: "'$se_server_address'"}}'
+        exit 0;
+    }
+
+    private::delete(){
+        secli DeleteUser --hub $__se_hub --user $__se_hub_user | \
             secli config -f $__se_admin_file -t $__se_server | \
             secli apply
         exit 0;
@@ -1238,6 +1250,12 @@ public::user(){
                 __se_new_pass="${5:-$__se_new_pass}";
                 __se_new_realname="${6:-user_$__se_new_user}";
                 private::add;
+            ;;
+            -D | --delete )
+                __se_server="${2:?Error: a <server> is needed}";
+                __se_hub="${3:?Error: a <hub> is needed}";
+                __se_hub_user="${4:?Error: a <username> is needed}";
+                private::delete;
             ;;
             * )
                 printf 'unknown option: %s\n' $1;
