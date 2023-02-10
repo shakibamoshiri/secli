@@ -895,6 +895,63 @@ public::EnumSession(){
     yq -n '{"jsonrpc": "2.0"} + {"id":"rpc_call_id"} + {"method":"'"$SEmethod"'"} + { eval(strenv(__params)) }' -Po json
 
 }
+
+public::GetSessionStatus(){
+    private::strict_mode;
+    private::GetSessionStatus(){
+        printf "${FUNCNAME/*:/}\n\n";
+        printf "%-${HELP_OFFSET}s %s\n" "-h  | --help" "show this help";
+        printf "%-${HELP_OFFSET}s %s\n" "-H  | --hub" "a valid hub name on SE server";
+        printf "%-${HELP_OFFSET}s %s\n" "-u  | --user" "a valid user name on SE server";
+
+        exit ${1:-1};
+    }
+
+    if (( ${#} == 0 )); then
+        private::${FUNCNAME/*:/} $ERR_EXPR_FAILED;
+    fi
+
+    declare __hub='';
+    declare __user='';
+
+    while (( ${#} > 0 )); do
+        case ${1} in
+            -h | --help )
+                private::${FUNCNAME/*:/} $ERR_EXPR_FAILED;
+            ;;
+            -H | --hub )
+                __hub="${2:?Error: a hub <name> is needed}";
+                shift 2;
+            ;;
+            -u | --user )
+                __user="${2:?Error: a user <name> is needed}";
+                shift 2;
+            ;;
+            * )
+                printf 'unknown option: %s\n' $1;
+                private::${FUNCNAME/*:/} $ERR_EXPR_FAILED;
+            ;;
+        esac
+    done
+
+    : __hub="${__hub:?Error: a hub <name> is needed}";
+    : __user="${__user:?Error: a user <name> is needed}";
+
+    private::debug $LINENO '--hub' "'${__hub}'";
+    private::debug $LINENO '--user' "'${__user}'";
+
+    declare SEmethod;
+    SEmethod=${FUNCNAME/*:/};
+
+    declare -x __params='"params": {
+        "HubName_str": "'"$__hub"'",
+        "Name_str": "'"$__user"'"
+    } ';
+
+    yq -n '{"jsonrpc": "2.0"} + {"id":"rpc_call_id"} + {"method":"'"$SEmethod"'"} + { eval(strenv(__params)) }' -Po json
+}
+
+
 ################################################################################
 #
 # secli function
@@ -1420,7 +1477,7 @@ private::main(){
     fi
 
     case ${1} in
-        config | apply | parse | reset | user | Test | GetServerInfo | GetServerStatus | CreateListener | EnumListener | DeleteListener | EnableListener | CreateUser | SetUser | GetUser | DeleteUser | EnumUser | EnumSession )
+        config | apply | parse | reset | user | Test | GetServerInfo | GetServerStatus | CreateListener | EnumListener | DeleteListener | EnableListener | CreateUser | SetUser | GetUser | DeleteUser | EnumUser | EnumSession | GetSessionStatus )
             private::debug $LINENO 'command:' "'${1}'";
             private::debug $LINENO 'command-options:' "'${@:2}'";
             public::${1} "${@:2}";
