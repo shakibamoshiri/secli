@@ -35,8 +35,13 @@ And `secli` handles its functionality using pipe (**Name Pipe in Linux** == `|`)
 
 ### Test (Test RPC function)
 
-```json
+```bash
 secli Test | secli config -f sample.admin.yaml -t local | secli apply
+```
+
+Output:
+
+```json
 {
   "method": "Test",
   "result": {
