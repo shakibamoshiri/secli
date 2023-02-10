@@ -36,7 +36,7 @@ And `secli` handles its functionality using pipe (**Name Pipe in Linux** == `|`)
 ### Test (Test RPC function)
 
 ```bash
-secli Test | secli config -f sample.admin.yaml -t local | secli apply
+secli Test | secli config -f admin.yaml -t local | secli apply
 ```
 
 Output:
