@@ -31,7 +31,7 @@ Thus `secli` does not follow traditional option based CLIs, as you might expect 
 ./secli --admin --admin-password <PASSWORD> --add-user --user-name XYZ --user-pass 123@XYZ --enable-policy vpn.example.com
 ```
 
-And `secli` handles its functionality using pipe (**Name Pipe in Linux** == `|`). Here are examples
+And `secli` handles its functionality using pipe (**Name Pipe in Linux** == `|`). Here is an example apply Test:
 
 ### Test (Test RPC function)
 
