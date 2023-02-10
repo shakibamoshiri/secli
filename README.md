@@ -69,6 +69,14 @@ secli:
     password: 1234
 ```
 
+ - local: a target name for `-t`
+ - address: SE server address (domain name) or IP
+ - port: SE server port
+ - password: SE server administrator password
+
+
+![Test.png](shots/Test.png)
+
 ---
 
 ## JSON-RPCs have been added
