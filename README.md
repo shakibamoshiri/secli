@@ -35,17 +35,18 @@ And `secli` handles its functionality using pipe (**Name Pipe in Linux** == `|`)
 
 ### Test (Test RPC function)
 
-```
-./secli.sh Test | ./secli.sh config -f sample.admin.yaml -t usa | ./secli.sh apply
+```json
+secli Test | secli config -f sample.admin.yaml -t local | secli apply
 {
-    "result": {
-        "Int64Value_u64": 0,
-        "IntValue_u32": 0,
-        "StrValue_str": "0",
-        "UniStrValue_utf": ""
-    },
-    "jsonrpc": "2.0",
-    "id": "rpc_call_id"
+  "method": "Test",
+  "result": {
+    "Int64Value_u64": 0,
+    "IntValue_u32": 0,
+    "StrValue_str": "0",
+    "UniStrValue_utf": ""
+  },
+  "jsonrpc": "2.0",
+  "id": "rpc_call_id"
 }
 ```
 
@@ -53,6 +54,15 @@ And `secli` handles its functionality using pipe (**Name Pipe in Linux** == `|`)
  - config: add our server credentials to the JSON-RPC 
  - apply: send JSON-RPC of Test to server and use credentials for authentication
 
+And **admin.yaml** file is:
+
+```yaml
+secli:
+  local:
+    address: localhost
+    port: 443
+    password: 1234
+```
 
 ---
 
