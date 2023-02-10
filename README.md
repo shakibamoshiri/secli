@@ -33,7 +33,7 @@ Thus `secli` does not follow traditional option based CLIs, as you might expect 
 
 And `secli` handles its functionality using pipe (**Name Pipe in Linux** == `|`). Here are examples
 
-### run Test query, no thing else
+### Test (Test RPC function)
 
 ```
 ./secli.sh Test | ./secli.sh config -f sample.admin.yaml -t usa | ./secli.sh apply
