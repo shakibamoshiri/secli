@@ -1167,6 +1167,18 @@ public::parse(){
             jq -r  '. as $root | $root.result[0] | to_entries | map(.key) | join(" ") as $H | 
                     $H, ($root.result[] | to_entries | map(.value|tostring) | join(" "))' <<< "$rpc_json" | column -t;
         ;;
+        GetSessionStatus )
+            jq  '.result as $root |
+                $root | 
+                ( .TotalRecvSize_u64 + .TotalSendSize_u64 ) as $total |
+                { hub: .HubName_str, username: .Username_str, realname: .RealUsername_str, ip: .SessionStatus_ClientIp_ip, 
+                  hostname: ."SessionStatus_ClientHostName_str", app: .ClientProductName_str, id: .SessionName_str, 
+                  server_ip: .ServerIpAddress_ip, cipher: .CipherName_str, recv: .TotalRecvSize_u64, send: .TotalSendSize_u64, total: $total } | 
+                { method: "'$__method'" } + { parsed: true } + { result: . }' <<< "$rpc_json";
+        ;;
+        GetSessionStatusTable )
+            jq -r  '.result as $root | $root | to_entries | map(.key) | join(" ") as $H | $H, ($root | to_entries | map(.value|tostring|sub("[ -]+"; "-"; "g")) | join(" "))' <<< "$rpc_json" | column -t
+        ;;
         * )
              printf 'unknown option: %s\n' $__method;
              printf 'please check: parse --help\n';
@@ -1334,6 +1346,88 @@ public::user(){
     private::debug $LINENO '__se_hub:' "'${__se_hub}'";
 }
 
+
+public::session(){
+    private::session(){
+        printf "${FUNCNAME/*:/}\n\n";
+        printf "%-${HELP_OFFSET}s %s\n" "-h  | --help" "show this help";
+        printf "%-${HELP_OFFSET}s %s\n" "-e  | --enum" "enumerate sessions of a hub";
+        printf "%-${HELP_OFFSET}s %s\n" "-g  | --get" "get status of a user in a session (session-id is needed)";
+        printf "%-${HELP_OFFSET}s %s\n" "-D  | --disconnect" "disconnect a user of a session (remove it)";
+
+        exit ${1:-1};
+    }
+
+    if (( ${#} == 0 )); then
+        private::${FUNCNAME/*:/} $ERR_EXPR_FAILED;
+    fi
+
+    declare __se_admin_file='admin.yaml';
+    declare __se_server='';
+    declare __se_hub='';
+    declare __se_user_session_id='';
+
+    if ! [[ -f $__se_admin_file ]]; then
+        printf "SE server admin file: '%s' not found\n" $__se_admin_file;
+        exit $ERR_EXPR_FAILED;
+    fi
+
+
+    private::enum(){
+        secli EnumSession --hub $__se_hub | \
+            secli config -f $__se_admin_file -t $__se_server | \
+            secli apply | \
+            secli parse;
+
+        exit 0;
+    }
+
+    private::get(){
+        secli GetSessionStatus --hub $__se_hub --user $__se_user_session_id| \
+        secli config -f $__se_admin_file -t $__se_server | \
+        secli apply | \
+        secli parse;
+
+        exit 0;
+    }
+
+    private::delete(){
+        secli DeleteUser --hub $__se_hub --user $__se_user_session_id| \
+            secli config -f $__se_admin_file -t $__se_server | \
+            secli apply
+        exit 0;
+    }
+
+    while (( ${#} > 0 )); do
+        case ${1} in
+            -h | --help )
+                private::${FUNCNAME/*:/} 0;
+            ;;
+            -e | --enum )
+                __se_server="${2:?Error: a <server> is needed}";
+                __se_hub="${3:?Error: a <hub> is needed}";
+                private::enum;
+            ;;
+            -g | --get )
+                __se_server="${2:?Error: a <server> is needed}";
+                __se_hub="${3:?Error: a <hub> is needed}";
+                __se_user_session_id="${4:?Error: a <user session id> is needed}";
+                private::get;
+            ;;
+            -D | --disconnect )
+                __se_server="${2:?Error: a <server> is needed}";
+                __se_hub="${3:?Error: a <hub> is needed}";
+                __se_user_session_id="${4:?Error: a <user session id> is needed}";
+                private::delete;
+            ;;
+            * )
+                printf 'unknown option: %s\n' $1;
+                private::${FUNCNAME/*:/} $ERR_EXPR_FAILED;
+            ;;
+        esac
+    done
+}
+
 ################################################################################
 #
 # main function
@@ -1401,6 +1495,7 @@ private::main_help(){
     printf "\nsecli commands:\n";
     printf "%-${HELP_OFFSET}s %s\n" 'help' 'show help menu';
     printf "%-${HELP_OFFSET}s %s\n" 'user' 'a user functions';
+    printf "%-${HELP_OFFSET}s %s\n" 'session' 'a session functions';
     printf "%-${HELP_OFFSET}s %s\n" 'config' 'read SE server admin yaml file';
     printf "%-${HELP_OFFSET}s %s\n" 'apply' 'send RPC-JSON to SE server';
     printf "%-${HELP_OFFSET}s %s\n" 'parse' 'parse SE server response';
@@ -1477,7 +1572,7 @@ private::main(){
     fi
 
     case ${1} in
-        config | apply | parse | reset | user | Test | GetServerInfo | GetServerStatus | CreateListener | EnumListener | DeleteListener | EnableListener | CreateUser | SetUser | GetUser | DeleteUser | EnumUser | EnumSession | GetSessionStatus )
+        config | apply | parse | reset | user | session | Test | GetServerInfo | GetServerStatus | CreateListener | EnumListener | DeleteListener | EnableListener | CreateUser | SetUser | GetUser | DeleteUser | EnumUser | EnumSession | GetSessionStatus )
             private::debug $LINENO 'command:' "'${1}'";
             private::debug $LINENO 'command-options:' "'${@:2}'";
             public::${1} "${@:2}";
