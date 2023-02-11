@@ -232,3 +232,5 @@ Any new
  - Bug reports 
 
 are welcome.
+
+## license
