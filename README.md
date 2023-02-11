@@ -104,3 +104,19 @@ You can ask/request for new JSON-RPC be added or contribute and send PR (Pull Re
 
 ## features
 
+Beyond common expected functionalities  
+
+ - add a user
+ - delete a user
+ - enable / disable a user
+ - etc
+
+There are out-of-box features  
+
+ - human readable output
+ - three output formats (JSON, YAML, table)
+ - set a user data limitation and block if exceeded
+
+Planned more will be added
+
+
