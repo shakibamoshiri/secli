@@ -121,12 +121,17 @@ Planned more will be added
 
 ## samples
 
-1. List of users of a HUB in table format on my local machine.  
+**List of users of a HUB in table format on my local machine**  
 It could be any server anywhere.  
 
 
 ```bash
 secli user --enum local vpn | secli parse --table
+```
+
+output
+
+```bash
 hub  username  realname     blocked  logins  etime                 llogin                traffic
 vpn  491bxd    user_491bxd  false    0       2023-03-09T23:39:30Z  1970-01-01T09:00:00Z  1073741824  0          1073741824
 vpn  7ehhzq    user_7ehhzq  false    0       2023-03-09T23:33:53Z  1970-01-01T09:00:00Z  1073741824  0          1073741824
@@ -140,11 +145,16 @@ vpn  uyybel    user_uyybel  false    0       2023-03-09T23:26:56Z  1970-01-01T09
 vpn  vpn       shakiba      false    28      2023-12-30T20:30:00Z  2023-02-10T11:39:16Z  9000000000  329668722  8670331278
 ```
 
-2. List online users (sessions) of a HUB in YAML format.
+**List online users (sessions) of a HUB in YAML format.**
 
 
 ```bash
 secli session --enum local vpn | secli parse --yaml
+```
+
+output
+
+```yaml
 - username: Cascade
   client_ip: '::'
   session_id: SID-LINK-1
@@ -165,6 +175,11 @@ or table format
 
 ```bash
 secli session --enum local vpn | secli parse --table
+```
+
+output
+
+```bash
 username  client_ip      session_id        hostname       max_tcp  uptime  index
 Cascade   ::             SID-LINK-1        -              0        1332    1
 vpn       192.168.1.178  SID-VPN-[L2TP]-2  192.168.1.178  1        29      
@@ -174,6 +189,12 @@ By default it will be JSON format
 
 ```bash
 secli session --enum local vpn
+```
+
+output
+
+
+```json
 {
   "method": "EnumSession",
   "parsed": true,
