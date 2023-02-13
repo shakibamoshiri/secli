@@ -951,6 +951,12 @@ public::GetSessionStatus(){
     yq -n '{"jsonrpc": "2.0"} + {"id":"rpc_call_id"} + {"method":"'"$SEmethod"'"} + { eval(strenv(__params)) }' -Po json
 }
 
+public::Flush(){
+    declare SEmethod;
+    SEmethod=${FUNCNAME/*:/};
+
+    yq -n '{"jsonrpc": "2.0"} + {"id":"rpc_call_id"} + {"method":"'"$SEmethod"'"} + {"params": {} }' -Po json
+}
 
 ################################################################################
 #
@@ -1526,6 +1532,9 @@ private::main_help(){
     printf "%-${HELP_OFFSET}s %s\n" 'GetSessionStatus' 'Get Session Status';
     printf "%-${HELP_OFFSET}s %s\n" 'DeleteSession' 'Disconnect Session';
 
+    printf "\n";
+    printf "%-${HELP_OFFSET}s %s\n" 'Flush' 'Save All Volatile Data of VPN Server / Bridge to the Configuration File';
+
     exit ${1:-1};
 }
 
@@ -1572,7 +1581,7 @@ private::main(){
     fi
 
     case ${1} in
-        config | apply | parse | reset | user | session | Test | GetServerInfo | GetServerStatus | CreateListener | EnumListener | DeleteListener | EnableListener | CreateUser | SetUser | GetUser | DeleteUser | EnumUser | EnumSession | GetSessionStatus )
+        config | apply | parse | reset | user | session | Test | GetServerInfo | GetServerStatus | CreateListener | EnumListener | DeleteListener | EnableListener | CreateUser | SetUser | GetUser | DeleteUser | EnumUser | EnumSession | GetSessionStatus | Flush )
             private::debug $LINENO 'command:' "'${1}'";
             private::debug $LINENO 'command-options:' "'${@:2}'";
             public::${1} "${@:2}";
