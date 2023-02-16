@@ -1135,6 +1135,7 @@ public::parse(){
                  (to_entries | map(select(.key | match("byte";"i"))) | map(.value) | add) as $used |
                  { hub: $hub, username: .Name_str, realname: .Realname_utf, access: ."policy:Access_bool",
                  nlogin: .NumLogin_u32, mlogin: ."policy:MultiLogins_u32", policy: .UsePolicy_bool, group: .GroupName_str,  ctime: $ctime, etime: $etime,
+                 expired: ($etime | fromdate - (now | round) < 0 ),
                  traffic: {  have: $have | tonumber, used: $used , rest: ($have | tonumber - $used) } } |
                  { method: "'$__method'" } + { parsed: true } + { result: . }' <<< "$rpc_json";
         ;;
@@ -1146,6 +1147,7 @@ public::parse(){
                 (.LastLoginTime_dt | sub("(?<time>.*)\\..*Z"; "\(.time)Z")) as $llogin | (if .Note_utf == "" then 1*1024*1024*1024 else .Note_utf | tonumber end) as $have |
                 (to_entries | map(select(.key | match("byte";"i"))) | map(.value) | add) as $used |
                 { hub: $hub, username: .Name_str, realname: .Realname_utf, blocked: .DenyAccess_bool, logins: .NumLogin_u32, etime: $etime, llogin: $llogin,
+                expired: ($etime | fromdate - (now | round) < 0 ),
                 traffic: {  have: $have | tonumber, used: $used , rest: (if $have==0 then 1 else ($have - $used) end) } }] | 
                 { method: "'$__method'" } + { parsed: true } + { result: . }' <<< "$rpc_json";
         ;;
