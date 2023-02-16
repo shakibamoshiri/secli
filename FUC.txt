@@ -1,0 +1,10 @@
+# Frequently Needed Commands
+
+# date to seconds 
+date --date "2023-01-17T00:00:00.000Z" "+%s"
+
+# date in future and format it
+date -d "2023-01-07T14:08:45Z + 30 days" +%FT%TZ
+
+# an expired time
+jq -n '("2023-02-04T20:30:00Z" | fromdate) - (now | round) < 0'
